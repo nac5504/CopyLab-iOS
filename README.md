@@ -1,6 +1,6 @@
 # CopyLab iOS SDK
 
-A Swift SDK for integrating CopyLab features into your iOS applications.
+A Swift SDK for integrating CopyLab features into your iOS applications. This SDK handles analytics tracking, push open logging, and permission status synchronization.
 
 ## Installation
 
@@ -12,14 +12,61 @@ A Swift SDK for integrating CopyLab features into your iOS applications.
     ```
     https://github.com/nac5504/CopyLab-iOS
     ```
-4.  Set the **Dependency Rule** to "Up to Next Major Version" (or your preferred setting).
+4.  Set the **Dependency Rule** to "Up to Next Major Version" (starting from `1.0.0`).
 5.  Click **Add Package**.
-6.  Select the `CopyLab` library and click **Add Package**.
 
 ## Usage
 
-Import the module in your Swift files:
+### 1. Initialization
+
+Configure CopyLab in your `AppDelegate` or `App` entry point with your API Key.
 
 ```swift
 import CopyLab
+import FirebaseCore
+
+// In didFinishLaunching or init()
+FirebaseApp.configure() // Ensure Firebase is set up first
+CopyLab.shared.configure(apiKey: "cl_your_app_id_xxxx")
 ```
+
+### 2. Track Notification Opens
+
+Call `logPushOpen` when a user taps on a notification to track attribution.
+
+```swift
+// UNUserNotificationCenterDelegate
+func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
+    let userInfo = response.notification.request.content.userInfo
+    
+    // Log the event to CopyLab
+    CopyLab.shared.logPushOpen(userInfo: userInfo)
+}
+```
+
+### 3. Sync Permission Status
+
+Keep track of whether users have enabled or disabled notifications. Call this on app launch or when the app enters the foreground.
+
+```swift
+CopyLab.shared.syncNotificationPermissionStatus()
+```
+
+### 4. Topic Subscriptions
+
+Manage user subscriptions to specific notification topics.
+
+```swift
+// Subscribe
+CopyLab.shared.subscribeToTopic("community_updates")
+
+// Unsubscribe
+CopyLab.shared.unsubscribeFromTopic("community_updates")
+```
+
+## Updating
+
+To update the SDK to the latest version in Xcode:
+
+1.  Select **File** > **Packages** > **Update to Latest Package Versions**.
+2.  Xcode will check for newer versions matching your specific dependency rule (e.g., `1.x.x`).
