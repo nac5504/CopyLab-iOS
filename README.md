@@ -23,10 +23,8 @@ Configure CopyLab in your `AppDelegate` or `App` entry point with your API Key.
 
 ```swift
 import CopyLab
-import FirebaseCore
 
 // In didFinishLaunching or init()
-FirebaseApp.configure() // Ensure Firebase is set up first
 CopyLab.shared.configure(apiKey: "cl_your_app_id_xxxx")
 ```
 

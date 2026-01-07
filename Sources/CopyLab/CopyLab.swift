@@ -1,14 +1,15 @@
 import Foundation
-import FirebaseCore
-import FirebaseFirestore
-import FirebaseAuth
+@_implementationOnly import FirebaseCore
+@_implementationOnly import FirebaseFirestore
+@_implementationOnly import FirebaseAuth
 import UserNotifications
 
 /// CopyLab SDK for iOS
 /// Handles interaction with the CopyLab notification system, specifically analytics tracking.
-final class CopyLab {
-    static let shared = CopyLab()
+final public class CopyLab {
+    public static let shared = CopyLab()
     
+    // Internal generic wrapper for FirebaseApp to avoid exposing it
     private var _db: Firestore?
     private var apiKey: String?
     
@@ -22,22 +23,13 @@ final class CopyLab {
     
     private init() {}
     
-    /// Configure CopyLab with an API Key and optional Firebase App.
+    /// Configure CopyLab with an API Key.
     /// Call this in your AppDelegate or App init.
     ///
     /// - Parameters:
     ///   - apiKey: Your CopyLab API Key (starts with cl_)
-    ///   - app: Optional FirebaseApp instance for CopyLab project. If nil, uses default app.
-    public func configure(apiKey: String, app: FirebaseApp? = nil) {
+    public func configure(apiKey: String) {
         self.apiKey = apiKey
-        
-        if let app = app {
-            self._db = Firestore.firestore(app: app)
-            print("✅ CopyLab: Configured with separate Firebase App: \(app.name)")
-        } else {
-            print("⚠️ CopyLab: Configured with default Firebase App (Make sure this is intended)")
-        }
-        
         print("✅ CopyLab: Initialized with API Key: \(apiKey)")
     }
     
@@ -50,23 +42,30 @@ final class CopyLab {
         guard let filePath = Bundle.main.path(forResource: plistName, ofType: "plist"),
               let options = FirebaseOptions(contentsOfFile: filePath) else {
             print("⚠️ CopyLab: Could not find or load \(plistName).plist. Using default app.")
-            self.configure(apiKey: apiKey, app: nil)
+            self.configure(apiKey: apiKey)
             return
         }
         
         // Configure secondary app
         // We use a specific name "CopyLab" to avoid conflicts
-        var app: FirebaseApp?
+        let appName = "CopyLab"
         
         // Check if already configured to avoid crash
-        if let existingApp = FirebaseApp.allApps?.values.first(where: { $0.name == "CopyLab" }) {
+        var app: FirebaseApp?
+        if let existingApp = FirebaseApp.allApps?.values.first(where: { $0.name == appName }) {
             app = existingApp
         } else {
-            FirebaseApp.configure(options: options, name: "CopyLab")
-            app = FirebaseApp.app(name: "CopyLab")
+            FirebaseApp.configure(options: options, name: appName)
+            app = FirebaseApp.app(name: appName)
         }
         
-        self.configure(apiKey: apiKey, app: app)
+        if let app = app {
+            self._db = Firestore.firestore(app: app)
+            self.apiKey = apiKey
+            print("✅ CopyLab: Configured with separate Firebase App: \(appName)")
+        } else {
+            self.configure(apiKey: apiKey)
+        }
     }
     
     // MARK: - Private Helpers
@@ -93,7 +92,7 @@ final class CopyLab {
     /// This should be called when a user taps on a notification.
     ///
     /// - Parameter userInfo: The userInfo dictionary from the notification response.
-    func logPushOpen(userInfo: [AnyHashable: Any]) {
+    public func logPushOpen(userInfo: [AnyHashable: Any]) {
         // Extract CopyLab data
         let placementId = userInfo["copylab_placement_id"] as? String
         let placementName = userInfo["copylab_placement_name"] as? String
@@ -104,7 +103,8 @@ final class CopyLab {
         // Also capture generic notification type if available
         let type = (userInfo["type"] as? String) ?? (userInfo["notification_type"] as? String) ?? "unknown"
         
-        // Get current user ID
+        // Get current user ID from Firebase Auth
+        // Note: We access Auth internally
         guard let userId = Auth.auth().currentUser?.uid else {
             print("⚠️ CopyLab: No authenticated user, skipping push_open log")
             return
@@ -155,7 +155,7 @@ final class CopyLab {
     /// Topics are stored in the centralized copylab_topics collection for efficient lookup.
     ///
     /// - Parameter topicId: The topic ID (e.g., "chat_community_chat_alerts")
-    func subscribeToTopic(_ topicId: String) {
+    public func subscribeToTopic(_ topicId: String) {
         guard let userId = Auth.auth().currentUser?.uid else {
             print("⚠️ CopyLab: No authenticated user, skipping topic subscribe")
             return
@@ -179,7 +179,7 @@ final class CopyLab {
     /// Unsubscribes the current user from a CopyLab topic.
     ///
     /// - Parameter topicId: The topic ID (e.g., "chat_community_chat_alerts")
-    func unsubscribeFromTopic(_ topicId: String) {
+    public func unsubscribeFromTopic(_ topicId: String) {
         guard let userId = Auth.auth().currentUser?.uid else {
             print("⚠️ CopyLab: No authenticated user, skipping topic unsubscribe")
             return
@@ -207,7 +207,7 @@ final class CopyLab {
     ///
     /// Stores the permission status in the `copylab_users/{userId}` document as a `notification_status` field.
     /// The status is stored as a string: "authorized", "denied", "notDetermined", "provisional", or "ephemeral"
-    func syncNotificationPermissionStatus() {
+    public func syncNotificationPermissionStatus() {
         print("📊 CopyLab: syncNotificationPermissionStatus() called")
         
         guard let userId = Auth.auth().currentUser?.uid else {
@@ -265,7 +265,7 @@ final class CopyLab {
     /// Logs when the app is opened
     /// Used for calculating influenced attribution (app opens within X min of notification send)
     /// Creates a new document in the user's app_opens subcollection for each app open
-    func logAppOpen() {
+    public func logAppOpen() {
         guard let userId = Auth.auth().currentUser?.uid else {
             return
         }
