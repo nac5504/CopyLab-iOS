@@ -14,6 +14,11 @@ public enum CopyLab {
     private static let userDefaults = UserDefaults.standard
     private static let installIdKey = "copylab_install_id"
     
+    /// SDK Version
+    public static let sdkVersion = "2.2.0"
+    
+    private static var pendingActions: [() -> Void] = []
+    
     private static let session: URLSession = {
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 30
@@ -44,6 +49,13 @@ public enum CopyLab {
     public static func identify(userId: String) {
         self.identifiedUserId = userId
         print("👤 CopyLab: Identified user: \(userId)")
+        
+        // Execute pending actions now that we have an identity
+        let actions = pendingActions
+        pendingActions = []
+        for action in actions {
+            action()
+        }
         
         // Sync permission status immediately when user is identified
         syncNotificationPermissionStatus()
@@ -146,6 +158,12 @@ public enum CopyLab {
     ///
     /// - Parameter userInfo: The userInfo dictionary from the notification response.
     public static func logPushOpen(userInfo: [AnyHashable: Any]) {
+        guard identifiedUserId != nil else {
+            print("⏳ CopyLab: Queueing push open log until user is identified")
+            pendingActions.append { logPushOpen(userInfo: userInfo) }
+            return
+        }
+        
         var body: [String: Any] = [
             "user_id": currentUserId,
             "platform": "ios",
@@ -185,6 +203,12 @@ public enum CopyLab {
     ///
     /// - Parameter topicId: The topic ID (e.g., "chat_community_chat_alerts")
     public static func subscribeToTopic(_ topicId: String) {
+        guard identifiedUserId != nil else {
+            print("⏳ CopyLab: Queueing subscription to \(topicId) until user is identified")
+            pendingActions.append { subscribeToTopic(topicId) }
+            return
+        }
+        
         let body: [String: Any] = [
             "topic_id": topicId,
             "user_id": currentUserId
@@ -204,6 +228,12 @@ public enum CopyLab {
     ///
     /// - Parameter topicId: The topic ID
     public static func unsubscribeFromTopic(_ topicId: String) {
+        guard identifiedUserId != nil else {
+            print("⏳ CopyLab: Queueing unsubscription from \(topicId) until user is identified")
+            pendingActions.append { unsubscribeFromTopic(topicId) }
+            return
+        }
+        
         let body: [String: Any] = [
             "topic_id": topicId,
             "user_id": currentUserId
@@ -224,6 +254,12 @@ public enum CopyLab {
     /// Checks the current iOS notification permission status and syncs it to CopyLab.
     /// Call on app launch, when app enters foreground, and after requesting permissions.
     public static func syncNotificationPermissionStatus() {
+        guard identifiedUserId != nil else {
+            print("⏳ CopyLab: Queueing permission sync until user is identified")
+            pendingActions.append { syncNotificationPermissionStatus() }
+            return
+        }
+        
         UNUserNotificationCenter.current().getNotificationSettings { settings in
             let statusString: String
             switch settings.authorizationStatus {
@@ -255,6 +291,12 @@ public enum CopyLab {
     /// Logs when the app is opened.
     /// Used for calculating influenced attribution.
     public static func logAppOpen() {
+        guard identifiedUserId != nil else {
+            print("⏳ CopyLab: Queueing app open log until user is identified")
+            pendingActions.append { logAppOpen() }
+            return
+        }
+        
         let body: [String: Any] = [
             "user_id": currentUserId,
             "platform": "ios"

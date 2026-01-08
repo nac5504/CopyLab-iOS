@@ -12,7 +12,7 @@ A Swift SDK for integrating CopyLab features into your iOS applications. This SD
     ```
     https://github.com/nac5504/CopyLab-iOS
     ```
-4.  Set the **Dependency Rule** to "Up to Next Major Version" (starting from `1.0.0`).
+4.  Set the **Dependency Rule** to "Up to Next Major Version" (starting from `2.2.0`).
 5.  Click **Add Package**.
 
 ## Usage
@@ -73,4 +73,4 @@ CopyLab.shared.unsubscribeFromTopic("community_updates")
 To update the SDK to the latest version in Xcode:
 
 1.  Select **File** > **Packages** > **Update to Latest Package Versions**.
-2.  Xcode will check for newer versions matching your specific dependency rule (e.g., `1.x.x`).
+2.  Xcode will check for newer versions matching your specific dependency rule (e.g., `2.x.x`).
