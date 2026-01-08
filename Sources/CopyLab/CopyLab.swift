@@ -1,67 +1,43 @@
 import Foundation
-@_implementationOnly import FirebaseCore
-@_implementationOnly import FirebaseFirestore
-@_implementationOnly import FirebaseAuth
 import UserNotifications
 
 /// CopyLab SDK for iOS
-/// Handles interaction with the CopyLab notification system, specifically analytics tracking.
+/// Handles interaction with the CopyLab notification system via secure API.
 final public class CopyLab {
     public static let shared = CopyLab()
     
-    // Internal generic wrapper for FirebaseApp to avoid exposing it
-    private var _db: Firestore?
+    // Configuration
     private var apiKey: String?
     private var identifiedUserId: String?
+    private var baseURL = "https://us-central1-copylab-3f220.cloudfunctions.net"
     
     private let userDefaults = UserDefaults.standard
     private let installIdKey = "copylab_install_id"
     
-    private var db: Firestore {
-        if let database = _db {
-            return database
-        }
-        // Fallback to default app (should not happen if configured correctly)
-        return Firestore.firestore()
-    }
+    // URLSession for API calls
+    private lazy var session: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 30
+        return URLSession(configuration: config)
+    }()
     
     private init() {}
     
+    // MARK: - Configuration
+    
     /// Configure CopyLab with an API Key.
-    /// This connects to the CopyLab backend using internal configuration.
+    /// This connects to the CopyLab backend using secure HTTPS API calls.
     /// Call this in your AppDelegate or App init.
     ///
-    /// - Parameters:
-    ///   - apiKey: Your CopyLab API Key (starts with cl_)
+    /// - Parameter apiKey: Your CopyLab API Key (starts with cl_)
     public func configure(apiKey: String) {
         self.apiKey = apiKey
-        
-        let options = FirebaseOptions(googleAppID: "1:23603607144:ios:c4c986490fbdb399a3addd",
-                                      gcmSenderID: "23603607144")
-        options.projectID = "copylab-3f220"
-        options.apiKey = "AIzaSyAQpuNMRhEGXOyaHvRUbsbFm_NYcPB6pMA" // Web API Key
-        options.storageBucket = "copylab-3f220.firebasestorage.app"
-        
-        // Configure secondary app for CopyLab SDK
-        let appName = "CopyLabSDK"
-        
-        // Check if already configured to avoid crash or duplicates
-        var app: FirebaseApp?
-        if let existingApp = FirebaseApp.allApps?.values.first(where: { $0.name == appName }) {
-            app = existingApp
-        } else {
-            FirebaseApp.configure(options: options, name: appName)
-            app = FirebaseApp.app(name: appName)
-        }
-        
-        if let app = app {
-            self._db = Firestore.firestore(app: app)
-            print("✅ CopyLab: Configured internally with app: \(appName)")
-        } else {
-            print("❌ CopyLab: Failed to configure internal Firebase App.")
-        }
-        
-        print("✅ CopyLab: Initialized with API Key: \(apiKey)")
+        print("✅ CopyLab: Configured with API Key: \(apiKey.prefix(15))...")
+    }
+    
+    /// Set a custom base URL for the API (useful for testing).
+    public func setBaseURL(_ url: String) {
+        self.baseURL = url
     }
     
     /// Identify the current user with their User ID from your system.
@@ -72,7 +48,7 @@ final public class CopyLab {
         self.identifiedUserId = userId
         print("👤 CopyLab: Identified user: \(userId)")
         
-        // Optionally sync permission status immediately when user is identified
+        // Sync permission status immediately when user is identified
         syncNotificationPermissionStatus()
     }
     
@@ -85,7 +61,6 @@ final public class CopyLab {
     // MARK: - Private Helpers
     
     /// Returns the Install ID (Anonymous ID) for this device.
-    /// Persists across app launches.
     private var installId: String {
         if let existingId = userDefaults.string(forKey: installIdKey) {
             return existingId
@@ -101,7 +76,6 @@ final public class CopyLab {
     }
     
     /// Extracts the App ID from the API key.
-    /// Format: cl_{app_id}_{random_hex}
     private var appId: String {
         guard let key = apiKey else { return "unknown" }
         let components = key.split(separator: "_")
@@ -111,63 +85,99 @@ final public class CopyLab {
         return "unknown"
     }
     
-    /// Returns the collection path prefixed for the current tenant.
-    /// e.g. "apps/nomigo/push_analytics"
-    private func getCollectionPath(_ collection: String) -> String {
-        let tenantPrefix = "apps/\(appId)/"
-        return tenantPrefix + collection
+    // MARK: - API Request Helper
+    
+    private func makeAPIRequest(
+        endpoint: String,
+        method: String = "POST",
+        body: [String: Any]? = nil,
+        completion: ((Result<[String: Any], Error>) -> Void)? = nil
+    ) {
+        guard let apiKey = apiKey else {
+            print("⚠️ CopyLab: API Key not configured")
+            completion?(.failure(CopyLabError.notConfigured))
+            return
+        }
+        
+        guard let url = URL(string: "\(baseURL)/\(endpoint)") else {
+            print("⚠️ CopyLab: Invalid URL for endpoint: \(endpoint)")
+            completion?(.failure(CopyLabError.invalidURL))
+            return
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(apiKey, forHTTPHeaderField: "X-API-Key")
+        
+        if let body = body {
+            request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        }
+        
+        session.dataTask(with: request) { data, response, error in
+            if let error = error {
+                print("⚠️ CopyLab: API error for \(endpoint): \(error.localizedDescription)")
+                completion?(.failure(error))
+                return
+            }
+            
+            guard let data = data else {
+                completion?(.failure(CopyLabError.noData))
+                return
+            }
+            
+            do {
+                if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                    if let errorMessage = json["error"] as? String {
+                        completion?(.failure(CopyLabError.apiError(errorMessage)))
+                    } else {
+                        completion?(.success(json))
+                    }
+                } else {
+                    completion?(.failure(CopyLabError.invalidResponse))
+                }
+            } catch {
+                completion?(.failure(error))
+            }
+        }.resume()
     }
+    
+    // MARK: - Push Notification Logging
     
     /// Logs a push notification open event to CopyLab analytics.
     /// This should be called when a user taps on a notification.
     ///
     /// - Parameter userInfo: The userInfo dictionary from the notification response.
     public func logPushOpen(userInfo: [AnyHashable: Any]) {
-        // Extract CopyLab data
-        let placementId = userInfo["copylab_placement_id"] as? String
-        let placementName = userInfo["copylab_placement_name"] as? String
-        let templateId = userInfo["copylab_template_id"] as? String
-        let templateName = userInfo["copylab_template_name"] as? String
-        let notificationId = userInfo["notification_id"] as? String
-        
-        // Also capture generic notification type if available
-        let type = (userInfo["type"] as? String) ?? (userInfo["notification_type"] as? String) ?? "unknown"
-        
-        // Prepare data payload
-        var data: [String: Any] = [
-            "user_id": currentUserId, // Use internal ID tracking
-            "timestamp": FieldValue.serverTimestamp(),
+        var body: [String: Any] = [
+            "user_id": currentUserId,
             "platform": "ios",
-            "type": type
+            "type": (userInfo["type"] as? String) ?? (userInfo["notification_type"] as? String) ?? "unknown"
         ]
         
-        if let notificationId = notificationId {
-            data["notification_id"] = notificationId
+        // Add CopyLab metadata
+        if let notificationId = userInfo["notification_id"] as? String {
+            body["notification_id"] = notificationId
+        }
+        if let placementId = userInfo["copylab_placement_id"] as? String {
+            body["placement_id"] = placementId
+        }
+        if let placementName = userInfo["copylab_placement_name"] as? String {
+            body["placement_name"] = placementName
+        }
+        if let templateId = userInfo["copylab_template_id"] as? String {
+            body["template_id"] = templateId
+        }
+        if let templateName = userInfo["copylab_template_name"] as? String {
+            body["template_name"] = templateName
         }
         
-        if let placementId = placementId {
-            data["placement_id"] = placementId
-        }
-        
-        if let placementName = placementName {
-            data["placement_name"] = placementName
-        }
-        
-        if let templateId = templateId {
-            data["template_id"] = templateId
-        }
-        
-        if let templateName = templateName {
-            data["template_name"] = templateName
-        }
-        
-        // Log to Firestore (Tenant Scoped)
-        let collectionPath = getCollectionPath("copylab_push_open")
-        db.collection(collectionPath).addDocument(data: data) { error in
-            if let error = error {
+        makeAPIRequest(endpoint: "log_push_open", body: body) { result in
+            switch result {
+            case .success:
+                print("📊 CopyLab: Logged push_open event")
+            case .failure(let error):
                 print("⚠️ CopyLab: Error logging push_open: \(error.localizedDescription)")
-            } else {
-                print("📊 CopyLab: Logged push_open event (id: \(notificationId ?? "unknown")) to \(self.appId)")
             }
         }
     }
@@ -175,118 +185,118 @@ final public class CopyLab {
     // MARK: - Topic Subscriptions
     
     /// Subscribes the current user to a CopyLab topic.
-    /// Topics are stored in the centralized copylab_topics collection for efficient lookup.
     ///
     /// - Parameter topicId: The topic ID (e.g., "chat_community_chat_alerts")
     public func subscribeToTopic(_ topicId: String) {
-        // Tenant Scoped
-        let collectionPath = getCollectionPath("copylab_topics")
+        let body: [String: Any] = [
+            "topic_id": topicId,
+            "user_id": currentUserId
+        ]
         
-        db.collection(collectionPath).document(topicId).setData([
-            "subscriber_ids": FieldValue.arrayUnion([currentUserId]),
-            "updated_at": FieldValue.serverTimestamp()
-        ], merge: true) { error in
-            if let error = error {
+        makeAPIRequest(endpoint: "subscribe_to_topic", body: body) { result in
+            switch result {
+            case .success:
+                print("📊 CopyLab: Subscribed to topic \(topicId)")
+            case .failure(let error):
                 print("⚠️ CopyLab: Error subscribing to topic \(topicId): \(error.localizedDescription)")
-            } else {
-                print("📊 CopyLab: Subscribed to topic \(topicId) (\(self.appId))")
             }
         }
     }
     
     /// Unsubscribes the current user from a CopyLab topic.
     ///
-    /// - Parameter topicId: The topic ID (e.g., "chat_community_chat_alerts")
+    /// - Parameter topicId: The topic ID
     public func unsubscribeFromTopic(_ topicId: String) {
-        // Tenant Scoped
-        let collectionPath = getCollectionPath("copylab_topics")
+        let body: [String: Any] = [
+            "topic_id": topicId,
+            "user_id": currentUserId
+        ]
         
-        db.collection(collectionPath).document(topicId).updateData([
-            "subscriber_ids": FieldValue.arrayRemove([currentUserId]),
-            "updated_at": FieldValue.serverTimestamp()
-        ]) { error in
-            if let error = error {
+        makeAPIRequest(endpoint: "unsubscribe_from_topic", body: body) { result in
+            switch result {
+            case .success:
+                print("📊 CopyLab: Unsubscribed from topic \(topicId)")
+            case .failure(let error):
                 print("⚠️ CopyLab: Error unsubscribing from topic \(topicId): \(error.localizedDescription)")
-            } else {
-                print("📊 CopyLab: Unsubscribed from topic \(topicId) (\(self.appId))")
             }
         }
     }
     
     // MARK: - Notification Permission Tracking
     
-    /// Checks the current iOS notification permission status and syncs it to Firestore.
-    /// This should be called on app launch, when app enters foreground, and after requesting permissions.
-    ///
-    /// Stores the permission status in the `copylab_users/{userId}` document as a `notification_status` field.
-    /// The status is stored as a string: "authorized", "denied", "notDetermined", "provisional", or "ephemeral"
+    /// Checks the current iOS notification permission status and syncs it to CopyLab.
+    /// Call on app launch, when app enters foreground, and after requesting permissions.
     public func syncNotificationPermissionStatus() {
-        print("📊 CopyLab: syncNotificationPermissionStatus() called")
-        print("📊 CopyLab: Checking notification settings for user: \(currentUserId)")
-        
-        // Check notification settings on iOS
-        UNUserNotificationCenter.current().getNotificationSettings { settings in
-            print("📊 CopyLab: Got notification settings - authorizationStatus: \(settings.authorizationStatus.rawValue)")
+        UNUserNotificationCenter.current().getNotificationSettings { [weak self] settings in
+            guard let self = self else { return }
             
-            // Map authorization status to string
             let statusString: String
             switch settings.authorizationStatus {
-            case .authorized:
-                statusString = "authorized"
-            case .denied:
-                statusString = "denied"
-            case .notDetermined:
-                statusString = "notDetermined"
-            case .provisional:
-                statusString = "provisional"
-            case .ephemeral:
-                statusString = "ephemeral"
-            @unknown default:
-                statusString = "unknown"
+            case .authorized: statusString = "authorized"
+            case .denied: statusString = "denied"
+            case .notDetermined: statusString = "notDetermined"
+            case .provisional: statusString = "provisional"
+            case .ephemeral: statusString = "ephemeral"
+            @unknown default: statusString = "unknown"
             }
             
-            print("📊 CopyLab: Mapped status to string: \(statusString)")
-            
-            // Prepare data to sync
-            let data: [String: Any] = [
+            let body: [String: Any] = [
+                "user_id": self.currentUserId,
                 "notification_status": statusString,
-                "last_updated": FieldValue.serverTimestamp(),
                 "platform": "ios"
             ]
             
-            print("📊 CopyLab: Syncing to Firestore - copylab_users/\(self.currentUserId)")
-            
-            // Sync to Firestore using user ID as document ID in copylab_users collection
-            // Tenant Scoped
-            let collectionPath = self.getCollectionPath("copylab_users")
-            self.db.collection(collectionPath).document(self.currentUserId).setData(data, merge: true) { error in
-                if let error = error {
+            self.makeAPIRequest(endpoint: "sync_notification_permission", body: body) { result in
+                switch result {
+                case .success:
+                    print("📊 CopyLab: Synced notification status: \(statusString)")
+                case .failure(let error):
                     print("⚠️ CopyLab: Error syncing notification status: \(error.localizedDescription)")
-                } else {
-                    print("📊 CopyLab: ✅ Successfully synced notification status: \(statusString) (\(self.appId))")
                 }
             }
         }
     }
     
-    /// Logs when the app is opened
-    /// Used for calculating influenced attribution (app opens within X min of notification send)
-    /// Creates a new document in the user's app_opens subcollection for each app open
+    /// Logs when the app is opened.
+    /// Used for calculating influenced attribution.
     public func logAppOpen() {
-        let data: [String: Any] = [
-            "timestamp": FieldValue.serverTimestamp(),
+        let body: [String: Any] = [
+            "user_id": currentUserId,
             "platform": "ios"
         ]
         
-        // Add a new document to the app_opens subcollection for each app open
-        // Tenant Scoped
-        let collectionPath = getCollectionPath("copylab_users")
-        db.collection(collectionPath).document(currentUserId).collection("app_opens").addDocument(data: data) { error in
-            if let error = error {
+        makeAPIRequest(endpoint: "log_app_open", body: body) { result in
+            switch result {
+            case .success:
+                print("📱 CopyLab: Logged app open")
+            case .failure(let error):
                 print("⚠️ CopyLab: Error logging app open: \(error.localizedDescription)")
-            } else {
-                print("📱 CopyLab: Logged app open (\(self.appId))")
             }
+        }
+    }
+}
+
+// MARK: - Error Types
+
+public enum CopyLabError: LocalizedError {
+    case notConfigured
+    case invalidURL
+    case noData
+    case invalidResponse
+    case apiError(String)
+    
+    public var errorDescription: String? {
+        switch self {
+        case .notConfigured:
+            return "CopyLab SDK not configured. Call configure(apiKey:) first."
+        case .invalidURL:
+            return "Invalid API URL"
+        case .noData:
+            return "No data received from API"
+        case .invalidResponse:
+            return "Invalid response format from API"
+        case .apiError(let message):
+            return "API Error: \(message)"
         }
     }
 }
