@@ -24,8 +24,14 @@ Configure CopyLab in your `AppDelegate` or `App` entry point with your API Key.
 ```swift
 import CopyLab
 
-// In didFinishLaunching or init()
+// 1. Configure in didFinishLaunching
 CopyLab.shared.configure(apiKey: "cl_your_app_id_xxxx")
+
+// 2. Identify the user after login
+CopyLab.shared.identify(userId: "user_123")
+
+// 3. (Optional) Call logout when they sign out
+// CopyLab.shared.logout()
 ```
 
 ### 2. Track Notification Opens

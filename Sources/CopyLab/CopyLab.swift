@@ -12,45 +12,40 @@ final public class CopyLab {
     // Internal generic wrapper for FirebaseApp to avoid exposing it
     private var _db: Firestore?
     private var apiKey: String?
+    private var identifiedUserId: String?
+    
+    private let userDefaults = UserDefaults.standard
+    private let installIdKey = "copylab_install_id"
     
     private var db: Firestore {
         if let database = _db {
             return database
         }
-        // Fallback to default app
+        // Fallback to default app (should not happen if configured correctly)
         return Firestore.firestore()
     }
     
     private init() {}
     
     /// Configure CopyLab with an API Key.
+    /// This connects to the CopyLab backend using internal configuration.
     /// Call this in your AppDelegate or App init.
     ///
     /// - Parameters:
     ///   - apiKey: Your CopyLab API Key (starts with cl_)
     public func configure(apiKey: String) {
         self.apiKey = apiKey
-        print("✅ CopyLab: Initialized with API Key: \(apiKey)")
-    }
-    
-    /// Convenience: Configure using a plist file from the Bundle.
-    ///
-    /// - Parameters:
-    ///   - apiKey: Your CopyLab API Key
-    ///   - plistName: Name of the plist file (excluding .plist extension). Default: "CopyLab-GoogleService-Info"
-    public func configure(apiKey: String, plistName: String = "CopyLab-GoogleService-Info") {
-        guard let filePath = Bundle.main.path(forResource: plistName, ofType: "plist"),
-              let options = FirebaseOptions(contentsOfFile: filePath) else {
-            print("⚠️ CopyLab: Could not find or load \(plistName).plist. Using default app.")
-            self.configure(apiKey: apiKey)
-            return
-        }
         
-        // Configure secondary app
-        // We use a specific name "CopyLab" to avoid conflicts
-        let appName = "CopyLab"
+        let options = FirebaseOptions(googleAppID: "1:23603607144:ios:c4c986490fbdb399a3addd",
+                                      gcmSenderID: "23603607144")
+        options.projectID = "copylab-3f220"
+        options.apiKey = "AIzaSyAQpuNMRhEGXOyaHvRUbsbFm_NYcPB6pMA" // Web API Key
+        options.storageBucket = "copylab-3f220.firebasestorage.app"
         
-        // Check if already configured to avoid crash
+        // Configure secondary app for CopyLab SDK
+        let appName = "CopyLabSDK"
+        
+        // Check if already configured to avoid crash or duplicates
         var app: FirebaseApp?
         if let existingApp = FirebaseApp.allApps?.values.first(where: { $0.name == appName }) {
             app = existingApp
@@ -61,14 +56,49 @@ final public class CopyLab {
         
         if let app = app {
             self._db = Firestore.firestore(app: app)
-            self.apiKey = apiKey
-            print("✅ CopyLab: Configured with separate Firebase App: \(appName)")
+            print("✅ CopyLab: Configured internally with app: \(appName)")
         } else {
-            self.configure(apiKey: apiKey)
+            print("❌ CopyLab: Failed to configure internal Firebase App.")
         }
+        
+        print("✅ CopyLab: Initialized with API Key: \(apiKey)")
+    }
+    
+    /// Identify the current user with their User ID from your system.
+    /// Call this after your user logs in.
+    ///
+    /// - Parameter userId: The unique ID of the user in your database.
+    public func identify(userId: String) {
+        self.identifiedUserId = userId
+        print("👤 CopyLab: Identified user: \(userId)")
+        
+        // Optionally sync permission status immediately when user is identified
+        syncNotificationPermissionStatus()
+    }
+    
+    /// Clear the identified user. Call this on logout.
+    public func logout() {
+        self.identifiedUserId = nil
+        print("👤 CopyLab: Logged out user")
     }
     
     // MARK: - Private Helpers
+    
+    /// Returns the Install ID (Anonymous ID) for this device.
+    /// Persists across app launches.
+    private var installId: String {
+        if let existingId = userDefaults.string(forKey: installIdKey) {
+            return existingId
+        }
+        let newId = UUID().uuidString
+        userDefaults.set(newId, forKey: installIdKey)
+        return newId
+    }
+    
+    /// Returns the effective User ID (Identified User or Install ID).
+    private var currentUserId: String {
+        return identifiedUserId ?? installId
+    }
     
     /// Extracts the App ID from the API key.
     /// Format: cl_{app_id}_{random_hex}
@@ -103,16 +133,9 @@ final public class CopyLab {
         // Also capture generic notification type if available
         let type = (userInfo["type"] as? String) ?? (userInfo["notification_type"] as? String) ?? "unknown"
         
-        // Get current user ID from Firebase Auth
-        // Note: We access Auth internally
-        guard let userId = Auth.auth().currentUser?.uid else {
-            print("⚠️ CopyLab: No authenticated user, skipping push_open log")
-            return
-        }
-        
         // Prepare data payload
         var data: [String: Any] = [
-            "user_id": userId,
+            "user_id": currentUserId, // Use internal ID tracking
             "timestamp": FieldValue.serverTimestamp(),
             "platform": "ios",
             "type": type
@@ -156,16 +179,11 @@ final public class CopyLab {
     ///
     /// - Parameter topicId: The topic ID (e.g., "chat_community_chat_alerts")
     public func subscribeToTopic(_ topicId: String) {
-        guard let userId = Auth.auth().currentUser?.uid else {
-            print("⚠️ CopyLab: No authenticated user, skipping topic subscribe")
-            return
-        }
-        
         // Tenant Scoped
         let collectionPath = getCollectionPath("copylab_topics")
         
         db.collection(collectionPath).document(topicId).setData([
-            "subscriber_ids": FieldValue.arrayUnion([userId]),
+            "subscriber_ids": FieldValue.arrayUnion([currentUserId]),
             "updated_at": FieldValue.serverTimestamp()
         ], merge: true) { error in
             if let error = error {
@@ -180,16 +198,11 @@ final public class CopyLab {
     ///
     /// - Parameter topicId: The topic ID (e.g., "chat_community_chat_alerts")
     public func unsubscribeFromTopic(_ topicId: String) {
-        guard let userId = Auth.auth().currentUser?.uid else {
-            print("⚠️ CopyLab: No authenticated user, skipping topic unsubscribe")
-            return
-        }
-        
         // Tenant Scoped
         let collectionPath = getCollectionPath("copylab_topics")
         
         db.collection(collectionPath).document(topicId).updateData([
-            "subscriber_ids": FieldValue.arrayRemove([userId]),
+            "subscriber_ids": FieldValue.arrayRemove([currentUserId]),
             "updated_at": FieldValue.serverTimestamp()
         ]) { error in
             if let error = error {
@@ -209,13 +222,7 @@ final public class CopyLab {
     /// The status is stored as a string: "authorized", "denied", "notDetermined", "provisional", or "ephemeral"
     public func syncNotificationPermissionStatus() {
         print("📊 CopyLab: syncNotificationPermissionStatus() called")
-        
-        guard let userId = Auth.auth().currentUser?.uid else {
-            print("⚠️ CopyLab: No authenticated user, skipping permission sync")
-            return
-        }
-        
-        print("📊 CopyLab: Checking notification settings for user: \(userId)")
+        print("📊 CopyLab: Checking notification settings for user: \(currentUserId)")
         
         // Check notification settings on iOS
         UNUserNotificationCenter.current().getNotificationSettings { settings in
@@ -247,12 +254,12 @@ final public class CopyLab {
                 "platform": "ios"
             ]
             
-            print("📊 CopyLab: Syncing to Firestore - copylab_users/\(userId)")
+            print("📊 CopyLab: Syncing to Firestore - copylab_users/\(self.currentUserId)")
             
             // Sync to Firestore using user ID as document ID in copylab_users collection
             // Tenant Scoped
             let collectionPath = self.getCollectionPath("copylab_users")
-            self.db.collection(collectionPath).document(userId).setData(data, merge: true) { error in
+            self.db.collection(collectionPath).document(self.currentUserId).setData(data, merge: true) { error in
                 if let error = error {
                     print("⚠️ CopyLab: Error syncing notification status: \(error.localizedDescription)")
                 } else {
@@ -266,10 +273,6 @@ final public class CopyLab {
     /// Used for calculating influenced attribution (app opens within X min of notification send)
     /// Creates a new document in the user's app_opens subcollection for each app open
     public func logAppOpen() {
-        guard let userId = Auth.auth().currentUser?.uid else {
-            return
-        }
-        
         let data: [String: Any] = [
             "timestamp": FieldValue.serverTimestamp(),
             "platform": "ios"
@@ -278,7 +281,7 @@ final public class CopyLab {
         // Add a new document to the app_opens subcollection for each app open
         // Tenant Scoped
         let collectionPath = getCollectionPath("copylab_users")
-        db.collection(collectionPath).document(userId).collection("app_opens").addDocument(data: data) { error in
+        db.collection(collectionPath).document(currentUserId).collection("app_opens").addDocument(data: data) { error in
             if let error = error {
                 print("⚠️ CopyLab: Error logging app open: \(error.localizedDescription)")
             } else {
