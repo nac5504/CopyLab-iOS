@@ -3,25 +3,22 @@ import UserNotifications
 
 /// CopyLab SDK for iOS
 /// Handles interaction with the CopyLab notification system via secure API.
-final public class CopyLab {
-    public static let shared = CopyLab()
+public enum CopyLab {
     
-    // Configuration
-    private var apiKey: String?
-    private var identifiedUserId: String?
-    private var baseURL = "https://us-central1-copylab-3f220.cloudfunctions.net"
+    // MARK: - Private State
     
-    private let userDefaults = UserDefaults.standard
-    private let installIdKey = "copylab_install_id"
+    private static var apiKey: String?
+    private static var identifiedUserId: String?
+    private static var baseURL = "https://us-central1-copylab-3f220.cloudfunctions.net"
     
-    // URLSession for API calls
-    private lazy var session: URLSession = {
+    private static let userDefaults = UserDefaults.standard
+    private static let installIdKey = "copylab_install_id"
+    
+    private static let session: URLSession = {
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 30
         return URLSession(configuration: config)
     }()
-    
-    private init() {}
     
     // MARK: - Configuration
     
@@ -30,13 +27,13 @@ final public class CopyLab {
     /// Call this in your AppDelegate or App init.
     ///
     /// - Parameter apiKey: Your CopyLab API Key (starts with cl_)
-    public func configure(apiKey: String) {
+    public static func configure(apiKey: String) {
         self.apiKey = apiKey
         print("✅ CopyLab: Configured with API Key: \(apiKey.prefix(15))...")
     }
     
     /// Set a custom base URL for the API (useful for testing).
-    public func setBaseURL(_ url: String) {
+    public static func setBaseURL(_ url: String) {
         self.baseURL = url
     }
     
@@ -44,7 +41,7 @@ final public class CopyLab {
     /// Call this after your user logs in.
     ///
     /// - Parameter userId: The unique ID of the user in your database.
-    public func identify(userId: String) {
+    public static func identify(userId: String) {
         self.identifiedUserId = userId
         print("👤 CopyLab: Identified user: \(userId)")
         
@@ -53,7 +50,7 @@ final public class CopyLab {
     }
     
     /// Clear the identified user. Call this on logout.
-    public func logout() {
+    public static func logout() {
         self.identifiedUserId = nil
         print("👤 CopyLab: Logged out user")
     }
@@ -61,7 +58,7 @@ final public class CopyLab {
     // MARK: - Private Helpers
     
     /// Returns the Install ID (Anonymous ID) for this device.
-    private var installId: String {
+    private static var installId: String {
         if let existingId = userDefaults.string(forKey: installIdKey) {
             return existingId
         }
@@ -71,12 +68,12 @@ final public class CopyLab {
     }
     
     /// Returns the effective User ID (Identified User or Install ID).
-    private var currentUserId: String {
+    private static var currentUserId: String {
         return identifiedUserId ?? installId
     }
     
     /// Extracts the App ID from the API key.
-    private var appId: String {
+    private static var appId: String {
         guard let key = apiKey else { return "unknown" }
         let components = key.split(separator: "_")
         if components.count >= 2 {
@@ -87,7 +84,7 @@ final public class CopyLab {
     
     // MARK: - API Request Helper
     
-    private func makeAPIRequest(
+    private static func makeAPIRequest(
         endpoint: String,
         method: String = "POST",
         body: [String: Any]? = nil,
@@ -148,7 +145,7 @@ final public class CopyLab {
     /// This should be called when a user taps on a notification.
     ///
     /// - Parameter userInfo: The userInfo dictionary from the notification response.
-    public func logPushOpen(userInfo: [AnyHashable: Any]) {
+    public static func logPushOpen(userInfo: [AnyHashable: Any]) {
         var body: [String: Any] = [
             "user_id": currentUserId,
             "platform": "ios",
@@ -187,7 +184,7 @@ final public class CopyLab {
     /// Subscribes the current user to a CopyLab topic.
     ///
     /// - Parameter topicId: The topic ID (e.g., "chat_community_chat_alerts")
-    public func subscribeToTopic(_ topicId: String) {
+    public static func subscribeToTopic(_ topicId: String) {
         let body: [String: Any] = [
             "topic_id": topicId,
             "user_id": currentUserId
@@ -206,7 +203,7 @@ final public class CopyLab {
     /// Unsubscribes the current user from a CopyLab topic.
     ///
     /// - Parameter topicId: The topic ID
-    public func unsubscribeFromTopic(_ topicId: String) {
+    public static func unsubscribeFromTopic(_ topicId: String) {
         let body: [String: Any] = [
             "topic_id": topicId,
             "user_id": currentUserId
@@ -226,10 +223,8 @@ final public class CopyLab {
     
     /// Checks the current iOS notification permission status and syncs it to CopyLab.
     /// Call on app launch, when app enters foreground, and after requesting permissions.
-    public func syncNotificationPermissionStatus() {
-        UNUserNotificationCenter.current().getNotificationSettings { [weak self] settings in
-            guard let self = self else { return }
-            
+    public static func syncNotificationPermissionStatus() {
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
             let statusString: String
             switch settings.authorizationStatus {
             case .authorized: statusString = "authorized"
@@ -241,12 +236,12 @@ final public class CopyLab {
             }
             
             let body: [String: Any] = [
-                "user_id": self.currentUserId,
+                "user_id": currentUserId,
                 "notification_status": statusString,
                 "platform": "ios"
             ]
             
-            self.makeAPIRequest(endpoint: "sync_notification_permission", body: body) { result in
+            makeAPIRequest(endpoint: "sync_notification_permission", body: body) { result in
                 switch result {
                 case .success:
                     print("📊 CopyLab: Synced notification status: \(statusString)")
@@ -259,7 +254,7 @@ final public class CopyLab {
     
     /// Logs when the app is opened.
     /// Used for calculating influenced attribution.
-    public func logAppOpen() {
+    public static func logAppOpen() {
         let body: [String: Any] = [
             "user_id": currentUserId,
             "platform": "ios"
@@ -288,7 +283,7 @@ public enum CopyLabError: LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .notConfigured:
-            return "CopyLab SDK not configured. Call configure(apiKey:) first."
+            return "CopyLab SDK not configured. Call CopyLab.configure(apiKey:) first."
         case .invalidURL:
             return "Invalid API URL"
         case .noData:
