@@ -68,6 +68,22 @@ CopyLab.shared.subscribeToTopic("community_updates")
 CopyLab.shared.unsubscribeFromTopic("community_updates")
 ```
 
+### 5. Track Subscription Status
+
+Update the user's in-app purchase subscription status to enable segmentation and analytics.
+
+```swift
+// When user purchases a subscription
+CopyLab.shared.updateSubscriptionStatus(
+    isSubscribed: true,
+    tier: "premium",
+    expiresAt: subscriptionExpiryDate
+)
+
+// When subscription expires or is cancelled
+CopyLab.shared.updateSubscriptionStatus(isSubscribed: false)
+```
+
 ## Updating
 
 To update the SDK to the latest version in Xcode:

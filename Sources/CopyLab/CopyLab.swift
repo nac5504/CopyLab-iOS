@@ -15,7 +15,7 @@ public enum CopyLab {
     private static let installIdKey = "copylab_install_id"
     
     /// SDK Version
-    public static let sdkVersion = "2.2.0"
+    public static let sdkVersion = "2.3.0"
     
     private static var pendingActions: [() -> Void] = []
     
@@ -308,6 +308,51 @@ public enum CopyLab {
                 print("📱 CopyLab: Logged app open")
             case .failure(let error):
                 print("⚠️ CopyLab: Error logging app open: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    // MARK: - Subscription Status
+    
+    /// Updates the user's in-app purchase subscription status.
+    /// Call this when the user's subscription changes (purchase, renewal, expiration).
+    ///
+    /// - Parameters:
+    ///   - isSubscribed: Whether the user has an active subscription
+    ///   - tier: Optional subscription tier (e.g., "premium", "pro")
+    ///   - expiresAt: Optional expiration date
+    public static func updateSubscriptionStatus(
+        isSubscribed: Bool,
+        tier: String? = nil,
+        expiresAt: Date? = nil
+    ) {
+        guard identifiedUserId != nil else {
+            print("⏳ CopyLab: Queueing subscription status update until user is identified")
+            pendingActions.append { updateSubscriptionStatus(isSubscribed: isSubscribed, tier: tier, expiresAt: expiresAt) }
+            return
+        }
+        
+        var body: [String: Any] = [
+            "user_id": currentUserId,
+            "is_subscribed": isSubscribed,
+            "platform": "ios"
+        ]
+        
+        if let tier = tier {
+            body["subscription_tier"] = tier
+        }
+        
+        if let expiresAt = expiresAt {
+            let formatter = ISO8601DateFormatter()
+            body["expires_at"] = formatter.string(from: expiresAt)
+        }
+        
+        makeAPIRequest(endpoint: "update_subscription_status", body: body) { result in
+            switch result {
+            case .success:
+                print("💳 CopyLab: Updated subscription status: \(isSubscribed ? "active" : "inactive")")
+            case .failure(let error):
+                print("⚠️ CopyLab: Error updating subscription status: \(error.localizedDescription)")
             }
         }
     }
