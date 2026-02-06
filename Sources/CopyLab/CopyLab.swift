@@ -356,6 +356,196 @@ public enum CopyLab {
             }
         }
     }
+
+    // MARK: - Notification Preferences
+    
+    /// Fetches the current user's notification preferences.
+    /// - Parameter completion: Callback with the user's preferences or an error
+    public static func getNotificationPreferences(completion: @escaping (Result<NotificationPreferences, Error>) -> Void) {
+        guard let userId = identifiedUserId else {
+            print("⚠️ CopyLab: User not identified. Call identify(userId:) first.")
+            completion(.failure(CopyLabError.notConfigured))
+            return
+        }
+        
+        guard let apiKey = apiKey else {
+            completion(.failure(CopyLabError.notConfigured))
+            return
+        }
+        
+        guard let url = URL(string: "\(baseURL)/get_notification_preferences?user_id=\(userId)") else {
+            completion(.failure(CopyLabError.invalidURL))
+            return
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue(apiKey, forHTTPHeaderField: "X-API-Key")
+        
+        session.dataTask(with: request) { data, response, error in
+            if let error = error {
+                completion(.failure(error))
+                return
+            }
+            
+            guard let data = data else {
+                completion(.failure(CopyLabError.noData))
+                return
+            }
+            
+            do {
+                let decoder = JSONDecoder()
+                let prefs = try decoder.decode(NotificationPreferences.self, from: data)
+                print("📬 CopyLab: Fetched notification preferences")
+                completion(.success(prefs))
+            } catch {
+                completion(.failure(error))
+            }
+        }.resume()
+    }
+    
+    /// Updates the current user's schedule preferences.
+    /// - Parameters:
+    ///   - schedules: Dictionary of schedule_id -> enabled state (only schedules being changed)
+    ///   - scheduleTimes: Dictionary of schedule_id -> time string "HH:mm" (optional)
+    ///   - completion: Callback with success or error
+    public static func updateNotificationPreferences(
+        schedules: [String: Bool] = [:],
+        scheduleTimes: [String: String] = [:],
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        guard identifiedUserId != nil else {
+            print("⚠️ CopyLab: User not identified. Call identify(userId:) first.")
+            completion(.failure(CopyLabError.notConfigured))
+            return
+        }
+        
+        var body: [String: Any] = [
+            "user_id": currentUserId
+        ]
+        
+        if !schedules.isEmpty {
+            body["schedules"] = schedules
+        }
+        
+        if !scheduleTimes.isEmpty {
+            body["schedule_times"] = scheduleTimes
+            // Include timezone for server-side scheduling
+            body["timezone"] = TimeZone.current.identifier
+        }
+        
+        makeAPIRequest(endpoint: "update_notification_preferences", body: body) { result in
+            switch result {
+            case .success:
+                print("📬 CopyLab: Updated notification preferences")
+                completion(.success(()))
+            case .failure(let error):
+                completion(.failure(error))
+            }
+        }
+    }
+    
+    /// Fetches the preference center configuration for the app.
+    /// This returns the structure needed to build the preference center UI.
+    /// - Parameter completion: Callback with the config or an error
+    public static func getPreferenceCenterConfig(completion: @escaping (Result<PreferenceCenterConfig, Error>) -> Void) {
+        guard let apiKey = apiKey else {
+            completion(.failure(CopyLabError.notConfigured))
+            return
+        }
+        
+        guard let url = URL(string: "\(baseURL)/get_notification_center_config") else {
+            completion(.failure(CopyLabError.invalidURL))
+            return
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue(apiKey, forHTTPHeaderField: "X-API-Key")
+        
+        session.dataTask(with: request) { data, response, error in
+            if let error = error {
+                completion(.failure(error))
+                return
+            }
+            
+            guard let data = data else {
+                completion(.failure(CopyLabError.noData))
+                return
+            }
+            
+            do {
+                let decoder = JSONDecoder()
+                let config = try decoder.decode(PreferenceCenterConfig.self, from: data)
+                print("📬 CopyLab: Fetched preference center config")
+                completion(.success(config))
+            } catch {
+                completion(.failure(error))
+            }
+        }.resume()
+    }
+    
+    /// Updates the current user's preference states (for preference-gated placements).
+    /// - Parameters:
+    ///   - preferences: Dictionary of preference_id -> enabled state
+    ///   - completion: Callback with success or error
+    public static func updateUserPreferences(
+        preferences: [String: Bool],
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        guard identifiedUserId != nil else {
+            print("⚠️ CopyLab: User not identified. Call identify(userId:) first.")
+            completion(.failure(CopyLabError.notConfigured))
+            return
+        }
+        
+        let body: [String: Any] = [
+            "user_id": currentUserId,
+            "preferences": preferences
+        ]
+        
+        makeAPIRequest(endpoint: "update_user_preferences", body: body) { result in
+            switch result {
+            case .success:
+                print("📬 CopyLab: Updated user preferences")
+                completion(.success(()))
+            case .failure(let error):
+                completion(.failure(error))
+            }
+        }
+    }
+    
+    // MARK: - Async/Await Wrappers
+    
+    /// Async version of getNotificationPreferences
+    @available(iOS 13.0, macOS 10.15, *)
+    public static func getNotificationPreferences() async throws -> NotificationPreferences {
+        try await withCheckedThrowingContinuation { continuation in
+            getNotificationPreferences { result in
+                continuation.resume(with: result)
+            }
+        }
+    }
+    
+    /// Async version of updateNotificationPreferences
+    @available(iOS 13.0, macOS 10.15, *)
+    public static func updateNotificationPreferences(schedules: [String: Bool]) async throws {
+        try await withCheckedThrowingContinuation { continuation in
+            updateNotificationPreferences(schedules: schedules) { result in
+                continuation.resume(with: result)
+            }
+        }
+    }
+    
+    /// Async version of getPreferenceCenterConfig
+    @available(iOS 13.0, macOS 10.15, *)
+    public static func getPreferenceCenterConfig() async throws -> PreferenceCenterConfig {
+        try await withCheckedThrowingContinuation { continuation in
+            getPreferenceCenterConfig { result in
+                continuation.resume(with: result)
+            }
+        }
+    }
 }
 
 // MARK: - Error Types

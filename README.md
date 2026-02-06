@@ -1,6 +1,6 @@
 # CopyLab iOS SDK
 
-A Swift SDK for integrating CopyLab features into your iOS applications. This SDK handles analytics tracking, push open logging, and permission status synchronization.
+A Swift SDK for integrating CopyLab features into your iOS applications. This SDK handles analytics tracking, push open logging, permission status synchronization, and notification preference management.
 
 ## Installation
 
@@ -12,7 +12,7 @@ A Swift SDK for integrating CopyLab features into your iOS applications. This SD
     ```
     https://github.com/nac5504/CopyLab-iOS
     ```
-4.  Set the **Dependency Rule** to "Up to Next Major Version" (starting from `2.2.0`).
+4.  Set the **Dependency Rule** to "Up to Next Major Version" (starting from `2.3.0`).
 5.  Click **Add Package**.
 
 ## Usage
@@ -25,13 +25,13 @@ Configure CopyLab in your `AppDelegate` or `App` entry point with your API Key.
 import CopyLab
 
 // 1. Configure in didFinishLaunching
-CopyLab.shared.configure(apiKey: "cl_your_app_id_xxxx")
+CopyLab.configure(apiKey: "cl_your_app_id_xxxx")
 
 // 2. Identify the user after login
-CopyLab.shared.identify(userId: "user_123")
+CopyLab.identify(userId: "user_123")
 
 // 3. (Optional) Call logout when they sign out
-// CopyLab.shared.logout()
+// CopyLab.logout()
 ```
 
 ### 2. Track Notification Opens
@@ -44,7 +44,7 @@ func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive respo
     let userInfo = response.notification.request.content.userInfo
     
     // Log the event to CopyLab
-    CopyLab.shared.logPushOpen(userInfo: userInfo)
+    CopyLab.logPushOpen(userInfo: userInfo)
 }
 ```
 
@@ -53,7 +53,7 @@ func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive respo
 Keep track of whether users have enabled or disabled notifications. Call this on app launch or when the app enters the foreground.
 
 ```swift
-CopyLab.shared.syncNotificationPermissionStatus()
+CopyLab.syncNotificationPermissionStatus()
 ```
 
 ### 4. Topic Subscriptions
@@ -62,10 +62,46 @@ Manage user subscriptions to specific notification topics.
 
 ```swift
 // Subscribe
-CopyLab.shared.subscribeToTopic("community_updates")
+CopyLab.subscribeToTopic("community_updates")
 
 // Unsubscribe
-CopyLab.shared.unsubscribeFromTopic("community_updates")
+CopyLab.unsubscribeFromTopic("community_updates")
+```
+
+### 5. Notification Preference Center (NEW)
+
+Display a drop-in settings screen where users can manage their notification preferences:
+
+```swift
+import SwiftUI
+import CopyLab
+
+struct SettingsView: View {
+    var body: some View {
+        NavigationView {
+            PreferenceCenterView()
+        }
+    }
+}
+```
+
+Or use the API directly for custom UI:
+
+```swift
+// Fetch user preferences (async/await)
+let prefs = try await CopyLab.getNotificationPreferences()
+print("OS Permission: \(prefs.osPermission)")
+print("Topics: \(prefs.topics)")
+print("Schedules: \(prefs.schedules)")
+
+// Fetch preference center config
+let config = try await CopyLab.getPreferenceCenterConfig()
+
+// Update schedule toggles
+try await CopyLab.updateNotificationPreferences(schedules: [
+    "daily_reminder": false,
+    "weekly_digest": true
+])
 ```
 
 ### 5. Track Subscription Status
