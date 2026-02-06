@@ -15,7 +15,7 @@ public enum CopyLab {
     private static let installIdKey = "copylab_install_id"
     
     /// SDK Version
-    public static let sdkVersion = "2.5.1"
+    public static let sdkVersion = "2.5.2"
     
     private static var pendingActions: [() -> Void] = []
     

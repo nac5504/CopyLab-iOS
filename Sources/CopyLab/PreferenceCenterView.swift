@@ -363,6 +363,7 @@ class PreferenceCenterViewModel: ObservableObject {
                     self?.processConfig(config)
                     self?.loadUserPreferences()
                 case .failure(let error):
+                    print("⚠️ CopyLab: Error loading preference config: \(error)")
                     self?.error = error
                     self?.isLoading = false
                 }
