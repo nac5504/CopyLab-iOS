@@ -345,23 +345,23 @@ class PreferenceCenterViewModel: ObservableObject {
     }
     
     func loadData() {
-        print("🔍 CopyLab: loadData() called")
+        print("🔍 CopyLab: loadData() called - using cached data only")
         isLoading = true
         error = nil
         
-        // Load from cache first (Instant UI)
+        // Load from cache ONLY (data was prefetched on configure/identify)
         if let cachedConfig = CopyLab.getCachedPreferenceCenterConfig() {
             print("💾 CopyLab: Loaded config from cache - \(cachedConfig.sections.count) sections")
             self.processConfig(cachedConfig)
-            self.isLoading = false 
         } else {
-            print("💾 CopyLab: No cached config available")
+            print("⚠️ CopyLab: No cached config - config should have been fetched on configure()")
         }
+        
         if let cachedPrefs = CopyLab.getCachedNotificationPreferences() {
             print("💾 CopyLab: Loaded preferences from cache - prefs: \(cachedPrefs.preferences), times: \(cachedPrefs.scheduleTimes)")
             self.updateViewModelWithPreferences(cachedPrefs)
         } else {
-            print("💾 CopyLab: No cached preferences available")
+            print("⚠️ CopyLab: No cached preferences - preferences should have been fetched on identify()")
         }
 
         // Fetch current OS permission status
@@ -371,28 +371,8 @@ class PreferenceCenterViewModel: ObservableObject {
             }
         }
         
-        // Fetch fresh preference center config and user preferences from network
-        print("🔍 CopyLab: Fetching config from network...")
-        CopyLab.getPreferenceCenterConfig { [weak self] result in
-            DispatchQueue.main.async {
-                switch result {
-                case .success(let config):
-                    print("☁️ CopyLab: Loaded fresh config from network - \(config.sections.count) sections")
-                    self?.processConfig(config)
-                    print("🔍 CopyLab: After processConfig, preferenceStates = \(self?.preferenceStates ?? [:])")
-                    self?.loadUserPreferences()
-                case .failure(let error):
-                     // If we have cached data, don't show full error, maybe just log it
-                     if self?.preferences.isEmpty ?? true {
-                        print("⚠️ CopyLab: Error loading preference config: \(error)")
-                        self?.error = error
-                     } else {
-                        print("⚠️ CopyLab: Network error, using cached data: \(error)")
-                     }
-                    self?.isLoading = false
-                }
-            }
-        }
+        self.isLoading = false
+        print("🔍 CopyLab: loadData() complete - preferenceStates = \(self.preferenceStates)")
     }
     
     private func processConfig(_ config: PreferenceCenterConfig) {
@@ -433,23 +413,6 @@ class PreferenceCenterViewModel: ObservableObject {
                 }
             case .systemPermissionCard:
                 break
-            }
-        }
-    }
-    
-    private func loadUserPreferences() {
-        print("🔍 CopyLab: loadUserPreferences() called - fetching from network...")
-        CopyLab.getNotificationPreferences { [weak self] result in
-            DispatchQueue.main.async {
-                switch result {
-                case .success(let prefs):
-                    print("🔍 CopyLab: loadUserPreferences SUCCESS - applying to view model")
-                    self?.updateViewModelWithPreferences(prefs)
-                    print("🔍 CopyLab: After updateViewModelWithPreferences, preferenceStates = \(self?.preferenceStates ?? [:])")
-                case .failure(let error):
-                    print("⚠️ CopyLab: Error loading user preferences: \(error.localizedDescription)")
-                }
-                self?.isLoading = false
             }
         }
     }
