@@ -16,6 +16,9 @@ let package = Package(
     targets: [
         .target(
             name: "CopyLab",
-            dependencies: [])
+            dependencies: []),
+        .testTarget(
+            name: "CopyLabTests",
+            dependencies: ["CopyLab"]),
     ]
 )

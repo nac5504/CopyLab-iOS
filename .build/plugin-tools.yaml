@@ -1,0 +1,112 @@
+client:
+  name: basic
+  file-system: device-agnostic
+tools: {}
+targets:
+  "CopyLab-arm64-apple-macosx26.0-debug.module": ["<CopyLab-arm64-apple-macosx26.0-debug.module>"]
+  "CopyLabPackageTests-arm64-apple-macosx26.0-debug.module": ["<CopyLabPackageTests-arm64-apple-macosx26.0-debug.module>"]
+  "CopyLabPackageTests-arm64-apple-macosx26.0-debug.test": ["<CopyLabPackageTests-arm64-apple-macosx26.0-debug.test>"]
+  "CopyLabTests-arm64-apple-macosx26.0-debug.module": ["<CopyLabTests-arm64-apple-macosx26.0-debug.module>"]
+  "PackageStructure": ["<PackageStructure>"]
+  "main": ["<CopyLab-arm64-apple-macosx26.0-debug.module>"]
+  "test": ["<CopyLab-arm64-apple-macosx26.0-debug.module>","<CopyLabPackageTests-arm64-apple-macosx26.0-debug.test>","<CopyLabTests-arm64-apple-macosx26.0-debug.module>"]
+default: "main"
+nodes:
+  "/Users/nicholascandello/Desktop/CopyLab/swift_sdk/Sources/CopyLab/":
+    is-directory-structure: true
+    content-exclusion-patterns: [".git",".build"]
+  "/Users/nicholascandello/Desktop/CopyLab/swift_sdk/Tests/CopyLabTests/":
+    is-directory-structure: true
+    content-exclusion-patterns: [".git",".build"]
+commands:
+  "/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLab.build/sources":
+    tool: write-auxiliary-file
+    inputs: ["<sources-file-list>","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/Sources/CopyLab/CopyLab.swift","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/Sources/CopyLab/NotificationPreferences.swift","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/Sources/CopyLab/PreferenceCenterView 2.swift","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/Sources/CopyLab/PreferenceCenterView.swift"]
+    outputs: ["/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLab.build/sources"]
+    description: "Write auxiliary file /Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLab.build/sources"
+
+  "/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLabPackageTests.build/sources":
+    tool: write-auxiliary-file
+    inputs: ["<sources-file-list>","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLabPackageTests.derived/runner.swift"]
+    outputs: ["/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLabPackageTests.build/sources"]
+    description: "Write auxiliary file /Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLabPackageTests.build/sources"
+
+  "/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLabPackageTests.derived/runner.swift":
+    tool: test-entry-point-tool
+    inputs: []
+    outputs: ["/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLabPackageTests.derived/runner.swift"]
+
+  "/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLabPackageTests.product/Objects.LinkFileList":
+    tool: write-auxiliary-file
+    inputs: ["<link-file-list>","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLab.build/CopyLab.swift.o","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLab.build/NotificationPreferences.swift.o","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLab.build/PreferenceCenterView 2.swift.o","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLab.build/PreferenceCenterView.swift.o","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLabPackageTests.build/runner.swift.o","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLabTests.build/NotificationPreferencesTests.swift.o"]
+    outputs: ["/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLabPackageTests.product/Objects.LinkFileList"]
+    description: "Write auxiliary file /Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLabPackageTests.product/Objects.LinkFileList"
+
+  "/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLabTests.build/sources":
+    tool: write-auxiliary-file
+    inputs: ["<sources-file-list>","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/Tests/CopyLabTests/NotificationPreferencesTests.swift"]
+    outputs: ["/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLabTests.build/sources"]
+    description: "Write auxiliary file /Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLabTests.build/sources"
+
+  "/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt":
+    tool: write-auxiliary-file
+    inputs: ["<swift-get-version>","/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"]
+    outputs: ["/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"]
+    always-out-of-date: "true"
+    description: "Write auxiliary file /Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"
+
+  "<CopyLab-arm64-apple-macosx26.0-debug.module>":
+    tool: phony
+    inputs: ["/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLab.build/CopyLab.swift.o","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLab.build/NotificationPreferences.swift.o","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLab.build/PreferenceCenterView 2.swift.o","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLab.build/PreferenceCenterView.swift.o","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/Modules/CopyLab.swiftmodule"]
+    outputs: ["<CopyLab-arm64-apple-macosx26.0-debug.module>"]
+
+  "<CopyLabPackageTests-arm64-apple-macosx26.0-debug.module>":
+    tool: phony
+    inputs: ["/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLabPackageTests.build/runner.swift.o","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/Modules/CopyLabPackageTests.swiftmodule"]
+    outputs: ["<CopyLabPackageTests-arm64-apple-macosx26.0-debug.module>"]
+
+  "<CopyLabPackageTests-arm64-apple-macosx26.0-debug.test>":
+    tool: phony
+    inputs: ["/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLabPackageTests.xctest/Contents/MacOS/CopyLabPackageTests"]
+    outputs: ["<CopyLabPackageTests-arm64-apple-macosx26.0-debug.test>"]
+
+  "<CopyLabTests-arm64-apple-macosx26.0-debug.module>":
+    tool: phony
+    inputs: ["/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLabTests.build/NotificationPreferencesTests.swift.o","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/Modules/CopyLabTests.swiftmodule"]
+    outputs: ["<CopyLabTests-arm64-apple-macosx26.0-debug.module>"]
+
+  "C.CopyLab-arm64-apple-macosx26.0-debug.module":
+    tool: shell
+    inputs: ["/Users/nicholascandello/Desktop/CopyLab/swift_sdk/Sources/CopyLab/CopyLab.swift","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/Sources/CopyLab/NotificationPreferences.swift","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/Sources/CopyLab/PreferenceCenterView 2.swift","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/Sources/CopyLab/PreferenceCenterView.swift","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLab.build/sources"]
+    outputs: ["/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLab.build/CopyLab.swift.o","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLab.build/NotificationPreferences.swift.o","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLab.build/PreferenceCenterView 2.swift.o","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLab.build/PreferenceCenterView.swift.o","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/Modules/CopyLab.swiftmodule"]
+    description: "Compiling Swift Module 'CopyLab' (4 sources)"
+    args: ["/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc","-module-name","CopyLab","-emit-dependencies","-emit-module","-emit-module-path","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/Modules/CopyLab.swiftmodule","-output-file-map","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLab.build/output-file-map.json","-parse-as-library","-incremental","-c","@/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLab.build/sources","-I","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/Modules","-target","arm64-apple-macosx10.15","-incremental","-enable-batch-mode","-serialize-diagnostics","-index-store-path","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/index/store","-Onone","-enable-testing","-j10","-DSWIFT_PACKAGE","-DDEBUG","-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE","-module-cache-path","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/ModuleCache","-parseable-output","-parse-as-library","-emit-objc-header","-emit-objc-header-path","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLab.build/include/CopyLab-Swift.h","-color-diagnostics","-swift-version","5","-plugin-path","/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing","-sdk","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk","-F","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-F","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks","-I","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-L","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-g","-Xcc","-isysroot","-Xcc","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk","-Xcc","-F","-Xcc","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-Xcc","-F","-Xcc","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks","-Xcc","-fPIC","-Xcc","-g"]
+
+  "C.CopyLabPackageTests-arm64-apple-macosx26.0-debug.module":
+    tool: shell
+    inputs: ["/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLabPackageTests.derived/runner.swift","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/Modules/CopyLabTests.swiftmodule","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLabPackageTests.build/sources"]
+    outputs: ["/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLabPackageTests.build/runner.swift.o","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/Modules/CopyLabPackageTests.swiftmodule"]
+    description: "Compiling Swift Module 'CopyLabPackageTests' (1 sources)"
+    args: ["/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc","-module-name","CopyLabPackageTests","-emit-dependencies","-emit-module","-emit-module-path","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/Modules/CopyLabPackageTests.swiftmodule","-output-file-map","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLabPackageTests.build/output-file-map.json","-parse-as-library","-incremental","-c","@/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLabPackageTests.build/sources","-I","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/Modules","-target","arm64-apple-macosx10.15","-incremental","-enable-batch-mode","-serialize-diagnostics","-index-store-path","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/index/store","-Onone","-enable-testing","-Xfrontend","-enable-cross-import-overlays","-j10","-DSWIFT_PACKAGE","-DDEBUG","-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE","-module-cache-path","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/ModuleCache","-parseable-output","-parse-as-library","-emit-objc-header","-emit-objc-header-path","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLabPackageTests.build/include/CopyLabPackageTests-Swift.h","-color-diagnostics","-plugin-path","/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing","-sdk","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk","-F","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-F","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks","-I","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-L","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-g","-Xcc","-isysroot","-Xcc","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk","-Xcc","-F","-Xcc","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-Xcc","-F","-Xcc","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks","-Xcc","-fPIC","-Xcc","-g"]
+
+  "C.CopyLabPackageTests-arm64-apple-macosx26.0-debug.test":
+    tool: shell
+    inputs: ["/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLab.build/CopyLab.swift.o","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLab.build/NotificationPreferences.swift.o","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLab.build/PreferenceCenterView 2.swift.o","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLab.build/PreferenceCenterView.swift.o","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLabPackageTests.build/runner.swift.o","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLabTests.build/NotificationPreferencesTests.swift.o","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLabPackageTests.product/Objects.LinkFileList"]
+    outputs: ["/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLabPackageTests.xctest/Contents/MacOS/CopyLabPackageTests"]
+    description: "Linking ./.build/arm64-apple-macosx/debug/CopyLabPackageTests.xctest/Contents/MacOS/CopyLabPackageTests"
+    args: ["/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc","-L","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug","-o","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLabPackageTests.xctest/Contents/MacOS/CopyLabPackageTests","-module-name","CopyLabPackageTests","-Xlinker","-no_warn_duplicate_libraries","-Xlinker","-bundle","-Xlinker","-rpath","-Xlinker","@loader_path/../../../","@/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLabPackageTests.product/Objects.LinkFileList","-Xlinker","-rpath","-Xlinker","/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-6.2/macosx","-target","arm64-apple-macosx14.0","-Xlinker","-add_ast_path","-Xlinker","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/Modules/CopyLab.swiftmodule","-Xlinker","-add_ast_path","-Xlinker","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/Modules/CopyLabPackageTests.swiftmodule","-Xlinker","-add_ast_path","-Xlinker","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/Modules/CopyLabTests.swiftmodule","-plugin-path","/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing","-sdk","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk","-F","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-F","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks","-I","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-L","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-g"]
+
+  "C.CopyLabTests-arm64-apple-macosx26.0-debug.module":
+    tool: shell
+    inputs: ["/Users/nicholascandello/Desktop/CopyLab/swift_sdk/Tests/CopyLabTests/NotificationPreferencesTests.swift","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/Modules/CopyLab.swiftmodule","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLabTests.build/sources"]
+    outputs: ["/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLabTests.build/NotificationPreferencesTests.swift.o","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/Modules/CopyLabTests.swiftmodule"]
+    description: "Compiling Swift Module 'CopyLabTests' (1 sources)"
+    args: ["/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc","-module-name","CopyLabTests","-emit-dependencies","-emit-module","-emit-module-path","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/Modules/CopyLabTests.swiftmodule","-output-file-map","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLabTests.build/output-file-map.json","-parse-as-library","-incremental","-c","@/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLabTests.build/sources","-I","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/Modules","-target","arm64-apple-macosx14.0","-incremental","-enable-batch-mode","-serialize-diagnostics","-index-store-path","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/index/store","-Onone","-enable-testing","-Xfrontend","-enable-cross-import-overlays","-j10","-DSWIFT_PACKAGE","-DDEBUG","-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE","-module-cache-path","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/ModuleCache","-parseable-output","-parse-as-library","-color-diagnostics","-swift-version","5","-plugin-path","/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing","-sdk","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk","-F","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-F","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks","-I","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-L","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-g","-Xcc","-isysroot","-Xcc","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk","-Xcc","-F","-Xcc","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-Xcc","-F","-Xcc","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks","-Xcc","-fPIC","-Xcc","-g"]
+
+  "PackageStructure":
+    tool: package-structure-tool
+    inputs: ["/Users/nicholascandello/Desktop/CopyLab/swift_sdk/Sources/CopyLab/","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/Tests/CopyLabTests/","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/Package.swift","/Users/nicholascandello/Desktop/CopyLab/swift_sdk/Package.resolved"]
+    outputs: ["<PackageStructure>"]
+    description: "Planning build"
+    allow-missing-inputs: true
+

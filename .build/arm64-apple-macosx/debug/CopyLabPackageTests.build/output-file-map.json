@@ -1,0 +1,12 @@
+{
+  "": {
+    "swift-dependencies": "/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLabPackageTests.build/master.swiftdeps"
+  },
+  "/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLabPackageTests.derived/runner.swift": {
+    "dependencies": "/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLabPackageTests.build/runner.d",
+    "object": "/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLabPackageTests.build/runner.swift.o",
+    "swiftmodule": "/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLabPackageTests.build/runner~partial.swiftmodule",
+    "swift-dependencies": "/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLabPackageTests.build/runner.swiftdeps",
+    "diagnostics": "/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLabPackageTests.build/runner.dia"
+  }
+}

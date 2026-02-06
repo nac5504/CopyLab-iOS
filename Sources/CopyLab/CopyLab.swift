@@ -15,7 +15,7 @@ public enum CopyLab {
     private static let installIdKey = "copylab_install_id"
     
     /// SDK Version
-    public static let sdkVersion = "2.3.0"
+    public static let sdkVersion = "2.5.0"
     
     private static var pendingActions: [() -> Void] = []
     
@@ -147,6 +147,63 @@ public enum CopyLab {
                 }
             } catch {
                 completion?(.failure(error))
+            }
+        }.resume()
+    }
+    
+    /// Generic API request helper for Decodable types
+    private static func makeDecodableAPIRequest<T: Decodable>(
+        endpoint: String,
+        method: String = "GET",
+        body: [String: Any]? = nil,
+        completion: @escaping (Result<T, Error>) -> Void
+    ) {
+        guard let apiKey = apiKey else {
+            print("⚠️ CopyLab: API Key not configured")
+            completion(.failure(CopyLabError.notConfigured))
+            return
+        }
+        
+        guard let url = URL(string: "\(baseURL)/\(endpoint)") else {
+            print("⚠️ CopyLab: Invalid URL for endpoint: \(endpoint)")
+            completion(.failure(CopyLabError.invalidURL))
+            return
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(apiKey, forHTTPHeaderField: "X-API-Key")
+        
+        if let body = body {
+            request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        }
+        
+        session.dataTask(with: request) { data, response, error in
+            if let error = error {
+                completion(.failure(error))
+                return
+            }
+            
+            guard let data = data else {
+                completion(.failure(CopyLabError.noData))
+                return
+            }
+            
+            // Check for error response first
+            if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let errorMessage = json["error"] as? String {
+                completion(.failure(CopyLabError.apiError(errorMessage)))
+                return
+            }
+            
+            do {
+                let decoder = JSONDecoder()
+                let decoded = try decoder.decode(T.self, from: data)
+                completion(.success(decoded))
+            } catch {
+                print("⚠️ CopyLab: Decoding error for \(endpoint): \(error)")
+                completion(.failure(error))
             }
         }.resume()
     }
@@ -368,40 +425,7 @@ public enum CopyLab {
             return
         }
         
-        guard let apiKey = apiKey else {
-            completion(.failure(CopyLabError.notConfigured))
-            return
-        }
-        
-        guard let url = URL(string: "\(baseURL)/get_notification_preferences?user_id=\(userId)") else {
-            completion(.failure(CopyLabError.invalidURL))
-            return
-        }
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-        request.setValue(apiKey, forHTTPHeaderField: "X-API-Key")
-        
-        session.dataTask(with: request) { data, response, error in
-            if let error = error {
-                completion(.failure(error))
-                return
-            }
-            
-            guard let data = data else {
-                completion(.failure(CopyLabError.noData))
-                return
-            }
-            
-            do {
-                let decoder = JSONDecoder()
-                let prefs = try decoder.decode(NotificationPreferences.self, from: data)
-                print("📬 CopyLab: Fetched notification preferences")
-                completion(.success(prefs))
-            } catch {
-                completion(.failure(error))
-            }
-        }.resume()
+        makeDecodableAPIRequest(endpoint: "get_notification_preferences?user_id=\(userId)", completion: completion)
     }
     
     /// Updates the current user's schedule preferences.
@@ -449,40 +473,7 @@ public enum CopyLab {
     /// This returns the structure needed to build the preference center UI.
     /// - Parameter completion: Callback with the config or an error
     public static func getPreferenceCenterConfig(completion: @escaping (Result<PreferenceCenterConfig, Error>) -> Void) {
-        guard let apiKey = apiKey else {
-            completion(.failure(CopyLabError.notConfigured))
-            return
-        }
-        
-        guard let url = URL(string: "\(baseURL)/get_notification_center_config") else {
-            completion(.failure(CopyLabError.invalidURL))
-            return
-        }
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-        request.setValue(apiKey, forHTTPHeaderField: "X-API-Key")
-        
-        session.dataTask(with: request) { data, response, error in
-            if let error = error {
-                completion(.failure(error))
-                return
-            }
-            
-            guard let data = data else {
-                completion(.failure(CopyLabError.noData))
-                return
-            }
-            
-            do {
-                let decoder = JSONDecoder()
-                let config = try decoder.decode(PreferenceCenterConfig.self, from: data)
-                print("📬 CopyLab: Fetched preference center config")
-                completion(.success(config))
-            } catch {
-                completion(.failure(error))
-            }
-        }.resume()
+        makeDecodableAPIRequest(endpoint: "get_notification_center_config", completion: completion)
     }
     
     /// Updates the current user's preference states (for preference-gated placements).

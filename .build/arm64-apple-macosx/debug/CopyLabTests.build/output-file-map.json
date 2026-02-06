@@ -1,0 +1,12 @@
+{
+  "": {
+    "swift-dependencies": "/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLabTests.build/master.swiftdeps"
+  },
+  "/Users/nicholascandello/Desktop/CopyLab/swift_sdk/Tests/CopyLabTests/NotificationPreferencesTests.swift": {
+    "dependencies": "/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLabTests.build/NotificationPreferencesTests.d",
+    "object": "/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLabTests.build/NotificationPreferencesTests.swift.o",
+    "swiftmodule": "/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLabTests.build/NotificationPreferencesTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLabTests.build/NotificationPreferencesTests.swiftdeps",
+    "diagnostics": "/Users/nicholascandello/Desktop/CopyLab/swift_sdk/.build/arm64-apple-macosx/debug/CopyLabTests.build/NotificationPreferencesTests.dia"
+  }
+}

@@ -34,8 +34,8 @@ public struct NotificationPreferences: Codable, Sendable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         osPermission = try container.decode(String.self, forKey: .osPermission)
-        topics = try container.decode([String].self, forKey: .topics)
-        schedules = try container.decode([String: Bool].self, forKey: .schedules)
+        topics = try container.decodeIfPresent([String].self, forKey: .topics) ?? []
+        schedules = try container.decodeIfPresent([String: Bool].self, forKey: .schedules) ?? [:]
         scheduleTimes = try container.decodeIfPresent([String: String].self, forKey: .scheduleTimes) ?? [:]
         timezone = try container.decodeIfPresent(String.self, forKey: .timezone)
     }
