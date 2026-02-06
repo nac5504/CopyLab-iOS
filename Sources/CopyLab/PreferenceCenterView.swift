@@ -345,18 +345,23 @@ class PreferenceCenterViewModel: ObservableObject {
     }
     
     func loadData() {
+        print("🔍 CopyLab: loadData() called")
         isLoading = true
         error = nil
         
         // Load from cache first (Instant UI)
         if let cachedConfig = CopyLab.getCachedPreferenceCenterConfig() {
-            print("💾 CopyLab: Loaded config from cache")
+            print("💾 CopyLab: Loaded config from cache - \(cachedConfig.sections.count) sections")
             self.processConfig(cachedConfig)
             self.isLoading = false 
+        } else {
+            print("💾 CopyLab: No cached config available")
         }
         if let cachedPrefs = CopyLab.getCachedNotificationPreferences() {
-             print("💾 CopyLab: Loaded preferences from cache")
+            print("💾 CopyLab: Loaded preferences from cache - prefs: \(cachedPrefs.preferences), times: \(cachedPrefs.scheduleTimes)")
             self.updateViewModelWithPreferences(cachedPrefs)
+        } else {
+            print("💾 CopyLab: No cached preferences available")
         }
 
         // Fetch current OS permission status
@@ -367,12 +372,14 @@ class PreferenceCenterViewModel: ObservableObject {
         }
         
         // Fetch fresh preference center config and user preferences from network
+        print("🔍 CopyLab: Fetching config from network...")
         CopyLab.getPreferenceCenterConfig { [weak self] result in
             DispatchQueue.main.async {
                 switch result {
                 case .success(let config):
-                    print("☁️ CopyLab: Loaded fresh config from network")
+                    print("☁️ CopyLab: Loaded fresh config from network - \(config.sections.count) sections")
                     self?.processConfig(config)
+                    print("🔍 CopyLab: After processConfig, preferenceStates = \(self?.preferenceStates ?? [:])")
                     self?.loadUserPreferences()
                 case .failure(let error):
                      // If we have cached data, don't show full error, maybe just log it
@@ -389,19 +396,25 @@ class PreferenceCenterViewModel: ObservableObject {
     }
     
     private func processConfig(_ config: PreferenceCenterConfig) {
+        print("🔍 CopyLab: processConfig() called")
         for section in config.sections {
             switch section.type {
             case .preferences:
                 preferences = section.items ?? []
+                print("🔍 CopyLab: Found \(preferences.count) preference items")
                 // Initialize preference states with defaults
                 for pref in preferences {
                     if preferenceStates[pref.id] == nil {
                         preferenceStates[pref.id] = pref.enabledByDefault ?? true
+                        print("🔍 CopyLab: Set DEFAULT preferenceStates[\(pref.id)] = \(pref.enabledByDefault ?? true)")
+                    } else {
+                        print("🔍 CopyLab: SKIPPED preferenceStates[\(pref.id)] - already set to \(preferenceStates[pref.id]!)")
                     }
                     // Initialize time if scheduled param exists
                     if let scheduleParam = pref.parameters?.schedule, let defaultTime = scheduleParam.defaultTime {
                         if scheduleTimes[pref.id] == nil {
                             scheduleTimes[pref.id] = parseTime(defaultTime)
+                            print("🔍 CopyLab: Set DEFAULT scheduleTimes[\(pref.id)] = \(defaultTime)")
                         }
                     }
                 }
@@ -425,11 +438,14 @@ class PreferenceCenterViewModel: ObservableObject {
     }
     
     private func loadUserPreferences() {
+        print("🔍 CopyLab: loadUserPreferences() called - fetching from network...")
         CopyLab.getNotificationPreferences { [weak self] result in
             DispatchQueue.main.async {
                 switch result {
                 case .success(let prefs):
+                    print("🔍 CopyLab: loadUserPreferences SUCCESS - applying to view model")
                     self?.updateViewModelWithPreferences(prefs)
+                    print("🔍 CopyLab: After updateViewModelWithPreferences, preferenceStates = \(self?.preferenceStates ?? [:])")
                 case .failure(let error):
                     print("⚠️ CopyLab: Error loading user preferences: \(error.localizedDescription)")
                 }
@@ -439,6 +455,7 @@ class PreferenceCenterViewModel: ObservableObject {
     }
     
     private func updateViewModelWithPreferences(_ prefs: NotificationPreferences) {
+        print("🔍 CopyLab: Applying preferences - schedules: \(prefs.schedules), times: \(prefs.scheduleTimes), preferences: \(prefs.preferences)")
         self.subscribedTopics = Set(prefs.topics)
         for (scheduleId, enabled) in prefs.schedules {
             self.scheduleStates[scheduleId] = enabled
@@ -448,6 +465,7 @@ class PreferenceCenterViewModel: ObservableObject {
         }
         for (prefId, enabled) in prefs.preferences {
             self.preferenceStates[prefId] = enabled
+            print("🔍 CopyLab: Set preferenceStates[\(prefId)] = \(enabled)")
         }
         
         self.osPermissionStatus = prefs.osPermission

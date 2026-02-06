@@ -17,7 +17,7 @@ public enum CopyLab {
     private static let prefsCacheKey = "copylab_prefs_cache"
     
     /// SDK Version
-    public static let sdkVersion = "2.5.5"
+    public static let sdkVersion = "2.5.6"
     
     private static var pendingActions: [() -> Void] = []
     
@@ -436,6 +436,7 @@ public enum CopyLab {
         makeDecodableAPIRequest(endpoint: "get_notification_preferences?user_id=\(userId)") { (result: Result<NotificationPreferences, Error>) in
             switch result {
             case .success(let prefs):
+                print("🔍 CopyLab: API returned preferences: \(prefs.preferences), times: \(prefs.scheduleTimes)")
                 saveCachedPreferences(prefs)
                 completion(.success(prefs))
             case .failure(let error):
