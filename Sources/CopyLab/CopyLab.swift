@@ -13,9 +13,11 @@ public enum CopyLab {
     
     private static let userDefaults = UserDefaults.standard
     private static let installIdKey = "copylab_install_id"
+    private static let configCacheKey = "copylab_config_cache"
+    private static let prefsCacheKey = "copylab_prefs_cache"
     
     /// SDK Version
-    public static let sdkVersion = "2.5.2"
+    public static let sdkVersion = "2.5.3"
     
     private static var pendingActions: [() -> Void] = []
     
@@ -425,7 +427,27 @@ public enum CopyLab {
             return
         }
         
-        makeDecodableAPIRequest(endpoint: "get_notification_preferences?user_id=\(userId)", completion: completion)
+        makeDecodableAPIRequest(endpoint: "get_notification_preferences?user_id=\(userId)") { (result: Result<NotificationPreferences, Error>) in
+            switch result {
+            case .success(let prefs):
+                saveCachedPreferences(prefs)
+                completion(.success(prefs))
+            case .failure(let error):
+                completion(.failure(error))
+            }
+        }
+    }
+    
+    /// Retrieve cached notification preferences if available.
+    public static func getCachedNotificationPreferences() -> NotificationPreferences? {
+        guard let data = userDefaults.data(forKey: prefsCacheKey) else { return nil }
+        return try? JSONDecoder().decode(NotificationPreferences.self, from: data)
+    }
+    
+    private static func saveCachedPreferences(_ prefs: NotificationPreferences) {
+        if let data = try? JSONEncoder().encode(prefs) {
+            userDefaults.set(data, forKey: prefsCacheKey)
+        }
     }
     
     /// Updates the current user's schedule preferences.
@@ -473,7 +495,27 @@ public enum CopyLab {
     /// This returns the structure needed to build the preference center UI.
     /// - Parameter completion: Callback with the config or an error
     public static func getPreferenceCenterConfig(completion: @escaping (Result<PreferenceCenterConfig, Error>) -> Void) {
-        makeDecodableAPIRequest(endpoint: "get_notification_center_config", completion: completion)
+        makeDecodableAPIRequest(endpoint: "get_notification_center_config") { (result: Result<PreferenceCenterConfig, Error>) in
+            switch result {
+            case .success(let config):
+                saveCachedConfig(config)
+                completion(.success(config))
+            case .failure(let error):
+                completion(.failure(error))
+            }
+        }
+    }
+    
+    /// Retrieve cached preference center configuration if available.
+    public static func getCachedPreferenceCenterConfig() -> PreferenceCenterConfig? {
+        guard let data = userDefaults.data(forKey: configCacheKey) else { return nil }
+        return try? JSONDecoder().decode(PreferenceCenterConfig.self, from: data)
+    }
+    
+    private static func saveCachedConfig(_ config: PreferenceCenterConfig) {
+        if let data = try? JSONEncoder().encode(config) {
+            userDefaults.set(data, forKey: configCacheKey)
+        }
     }
     
     /// Updates the current user's preference states (for preference-gated placements).

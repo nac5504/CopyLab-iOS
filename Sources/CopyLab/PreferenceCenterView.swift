@@ -348,6 +348,17 @@ class PreferenceCenterViewModel: ObservableObject {
         isLoading = true
         error = nil
         
+        // Load from cache first (Instant UI)
+        if let cachedConfig = CopyLab.getCachedPreferenceCenterConfig() {
+            print("💾 CopyLab: Loaded config from cache")
+            self.processConfig(cachedConfig)
+            self.isLoading = false 
+        }
+        if let cachedPrefs = CopyLab.getCachedNotificationPreferences() {
+             print("💾 CopyLab: Loaded preferences from cache")
+            self.updateViewModelWithPreferences(cachedPrefs)
+        }
+
         // Fetch current OS permission status
         UNUserNotificationCenter.current().getNotificationSettings { [weak self] settings in
             DispatchQueue.main.async {
@@ -355,16 +366,22 @@ class PreferenceCenterViewModel: ObservableObject {
             }
         }
         
-        // Fetch preference center config and user preferences
+        // Fetch fresh preference center config and user preferences from network
         CopyLab.getPreferenceCenterConfig { [weak self] result in
             DispatchQueue.main.async {
                 switch result {
                 case .success(let config):
+                    print("☁️ CopyLab: Loaded fresh config from network")
                     self?.processConfig(config)
                     self?.loadUserPreferences()
                 case .failure(let error):
-                    print("⚠️ CopyLab: Error loading preference config: \(error)")
-                    self?.error = error
+                     // If we have cached data, don't show full error, maybe just log it
+                     if self?.preferences.isEmpty ?? true {
+                        print("⚠️ CopyLab: Error loading preference config: \(error)")
+                        self?.error = error
+                     } else {
+                        print("⚠️ CopyLab: Network error, using cached data: \(error)")
+                     }
                     self?.isLoading = false
                 }
             }
@@ -412,20 +429,27 @@ class PreferenceCenterViewModel: ObservableObject {
             DispatchQueue.main.async {
                 switch result {
                 case .success(let prefs):
-                    self?.subscribedTopics = Set(prefs.topics)
-                    for (scheduleId, enabled) in prefs.schedules {
-                        self?.scheduleStates[scheduleId] = enabled
-                    }
-                    for (scheduleId, timeStr) in prefs.scheduleTimes {
-                        self?.scheduleTimes[scheduleId] = self?.parseTime(timeStr) ?? Date()
-                    }
-                    self?.osPermissionStatus = prefs.osPermission
+                    self?.updateViewModelWithPreferences(prefs)
                 case .failure(let error):
                     print("⚠️ CopyLab: Error loading user preferences: \(error.localizedDescription)")
                 }
                 self?.isLoading = false
             }
         }
+    }
+    
+    private func updateViewModelWithPreferences(_ prefs: NotificationPreferences) {
+        self.subscribedTopics = Set(prefs.topics)
+        for (scheduleId, enabled) in prefs.schedules {
+            self.scheduleStates[scheduleId] = enabled
+        }
+        for (scheduleId, timeStr) in prefs.scheduleTimes {
+            self.scheduleTimes[scheduleId] = self.parseTime(timeStr)
+        }
+        // Need to merge generic preferences too if we had them in NotificationPreferences model
+        // but current model only maps specific fields. 
+        
+        self.osPermissionStatus = prefs.osPermission
     }
     
     func isSubscribedToTopic(_ topicId: String) -> Bool {
