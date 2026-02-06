@@ -182,7 +182,7 @@ private struct TopicToggleRow: View {
     let onToggle: (Bool) -> Void
     
     var body: some View {
-        HStack(alignment: .center, spacing: 12) {
+        HStack(alignment: .center, spacing: 4) {
             // Title on the left - wraps to multiple lines if needed
             VStack(alignment: .leading, spacing: 2) {
                 HStack {
@@ -233,7 +233,7 @@ private struct PreferenceToggleRow: View {
     }
     
     var body: some View {
-        HStack(alignment: .center, spacing: 12) {
+        HStack(alignment: .center, spacing: 4) {
             // Title on the left - wraps to multiple lines if needed
             Text(preference.title)
                 .font(.body)
@@ -279,7 +279,7 @@ private struct ScheduleToggleRow: View {
     let onTimeChange: (Date) -> Void
     
     var body: some View {
-        HStack(alignment: .center, spacing: 12) {
+        HStack(alignment: .center, spacing: 4) {
             // Title on the left - wraps to multiple lines if needed
             Text(schedule.title)
                 .font(.body)
