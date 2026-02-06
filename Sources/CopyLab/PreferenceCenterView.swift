@@ -182,27 +182,31 @@ private struct TopicToggleRow: View {
     let onToggle: (Bool) -> Void
     
     var body: some View {
-        Toggle(isOn: Binding(
-            get: { isSubscribed },
-            set: { onToggle($0) }
-        )) {
+        HStack(alignment: .center, spacing: 12) {
+            // Title on the left - wraps to multiple lines if needed
             VStack(alignment: .leading, spacing: 2) {
                 HStack {
                     Text(topic.title)
                         .font(.body)
+                        .lineLimit(nil)
                     if topic.type == .contextual {
                         Image(systemName: "arrow.triangle.2.circlepath")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
                 }
-                if !topic.description.isEmpty {
-                    Text(topic.description)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
             }
+            
+            Spacer()
+            
+            // Toggle on the right
+            Toggle("", isOn: Binding(
+                get: { isSubscribed },
+                set: { onToggle($0) }
+            ))
+            .labelsHidden()
         }
+        .padding(.vertical, 4)
     }
 }
 
@@ -224,44 +228,43 @@ private struct PreferenceToggleRow: View {
         self.onTimeChange = onTimeChange
     }
     
+    private var hasScheduleParam: Bool {
+        preference.parameters?.schedule != nil
+    }
+    
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Toggle(isOn: Binding(
-                get: { isEnabled },
-                set: { onToggle($0) }
-            )) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(preference.title)
-                        .font(.body)
-                    if !preference.description.isEmpty {
-                        Text(preference.description)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
+        HStack(alignment: .center, spacing: 12) {
+            // Title on the left - wraps to multiple lines if needed
+            Text(preference.title)
+                .font(.body)
+                .lineLimit(nil)
+                .fixedSize(horizontal: false, vertical: true)
+            
+            Spacer()
+            
+            // Optional time picker - grayed out and disabled if toggle is off
+            if hasScheduleParam {
+                DatePicker(
+                    "",
+                    selection: Binding(
+                        get: { selectedTime },
+                        set: { onTimeChange($0) }
+                    ),
+                    displayedComponents: .hourAndMinute
+                )
+                .labelsHidden()
+                .disabled(!isEnabled)
+                .opacity(isEnabled ? 1.0 : 0.4)
             }
             
-            // Show time picker if parameters.schedule exists and preference is enabled
-            if let scheduleParam = preference.parameters?.schedule, isEnabled {
-                HStack {
-                    Text("Delivery time")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Spacer()
-                    DatePicker(
-                        "",
-                        selection: Binding(
-                            get: { selectedTime },
-                            set: { onTimeChange($0) }
-                        ),
-                        displayedComponents: .hourAndMinute
-                    )
-                    .labelsHidden()
-                }
-                .padding(.leading, 4)
-            }
+            // Toggle on the right
+            Toggle("", isOn: Binding(
+                get: { isEnabled },
+                set: { onToggle($0) }
+            ))
+            .labelsHidden()
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, 4)
     }
 }
 
@@ -276,43 +279,38 @@ private struct ScheduleToggleRow: View {
     let onTimeChange: (Date) -> Void
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Toggle(isOn: Binding(
-                get: { isEnabled },
-                set: { onToggle($0) }
-            )) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(schedule.title)
-                        .font(.body)
-                    if !schedule.description.isEmpty {
-                        Text(schedule.description)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
+        HStack(alignment: .center, spacing: 12) {
+            // Title on the left - wraps to multiple lines if needed
+            Text(schedule.title)
+                .font(.body)
+                .lineLimit(nil)
+                .fixedSize(horizontal: false, vertical: true)
+            
+            Spacer()
+            
+            // Optional time picker - grayed out and disabled if toggle is off
+            if schedule.timeConfigurable == true {
+                DatePicker(
+                    "",
+                    selection: Binding(
+                        get: { selectedTime },
+                        set: { onTimeChange($0) }
+                    ),
+                    displayedComponents: .hourAndMinute
+                )
+                .labelsHidden()
+                .disabled(!isEnabled)
+                .opacity(isEnabled ? 1.0 : 0.4)
             }
             
-            // Show time picker if time is configurable and schedule is enabled
-            if schedule.timeConfigurable == true && isEnabled {
-                HStack {
-                    Text("Delivery time")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Spacer()
-                    DatePicker(
-                        "",
-                        selection: Binding(
-                            get: { selectedTime },
-                            set: { onTimeChange($0) }
-                        ),
-                        displayedComponents: .hourAndMinute
-                    )
-                    .labelsHidden()
-                }
-                .padding(.leading, 4)
-            }
+            // Toggle on the right
+            Toggle("", isOn: Binding(
+                get: { isEnabled },
+                set: { onToggle($0) }
+            ))
+            .labelsHidden()
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, 4)
     }
 }
 
