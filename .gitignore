@@ -3,3 +3,10 @@
 *.xcodeproj
 *.xcworkspace
 .DS_Store
+
+# macOS Duplicates
+* 2.*
+* 3.*
+* copy.*
+* Copy.*
+*_copy.*
