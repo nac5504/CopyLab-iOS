@@ -17,7 +17,7 @@ public enum CopyLab {
     private static let prefsCacheKey = "copylab_prefs_cache"
     
     /// SDK Version
-    public static let sdkVersion = "2.5.4"
+    public static let sdkVersion = "2.5.5"
     
     private static var pendingActions: [() -> Void] = []
     
@@ -37,6 +37,9 @@ public enum CopyLab {
     public static func configure(apiKey: String) {
         self.apiKey = apiKey
         print("✅ CopyLab: Configured with API Key: \(apiKey.prefix(15))...")
+        
+        // Prefetch app configuration
+        prefetchPreferenceCenterConfig()
     }
     
     /// Set a custom base URL for the API (useful for testing).
@@ -61,6 +64,9 @@ public enum CopyLab {
         
         // Sync permission status immediately when user is identified
         syncNotificationPermissionStatus()
+        
+        // Prefetch user preferences
+        prefetchNotificationPreferences()
     }
     
     /// Clear the identified user. Call this on logout.
@@ -450,6 +456,30 @@ public enum CopyLab {
         }
     }
     
+    /// Prefetch config in the background (called on configure)
+    private static func prefetchPreferenceCenterConfig() {
+        getPreferenceCenterConfig { result in
+            switch result {
+            case .success:
+                print("📦 CopyLab: Prefetched preference center config")
+            case .failure(let error):
+                print("⚠️ CopyLab: Failed to prefetch config: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    /// Prefetch user preferences in the background (called on identify)
+    private static func prefetchNotificationPreferences() {
+        getNotificationPreferences { result in
+            switch result {
+            case .success:
+                print("📦 CopyLab: Prefetched notification preferences")
+            case .failure(let error):
+                print("⚠️ CopyLab: Failed to prefetch preferences: \(error.localizedDescription)")
+            }
+        }
+    }
+    
     /// Updates the current user's schedule preferences.
     /// - Parameters:
     ///   - schedules: Dictionary of schedule_id -> enabled state (only schedules being changed)
@@ -484,6 +514,34 @@ public enum CopyLab {
             switch result {
             case .success:
                 print("📬 CopyLab: Updated notification preferences")
+                // Update cached preferences to keep local state in sync
+                if var cachedPrefs = getCachedNotificationPreferences() {
+                    for (scheduleId, enabled) in schedules {
+                        var updatedSchedules = cachedPrefs.schedules
+                        updatedSchedules[scheduleId] = enabled
+                        cachedPrefs = NotificationPreferences(
+                            osPermission: cachedPrefs.osPermission,
+                            topics: cachedPrefs.topics,
+                            schedules: updatedSchedules,
+                            scheduleTimes: cachedPrefs.scheduleTimes,
+                            preferences: cachedPrefs.preferences,
+                            timezone: cachedPrefs.timezone
+                        )
+                    }
+                    for (scheduleId, timeStr) in scheduleTimes {
+                        var updatedTimes = cachedPrefs.scheduleTimes
+                        updatedTimes[scheduleId] = timeStr
+                        cachedPrefs = NotificationPreferences(
+                            osPermission: cachedPrefs.osPermission,
+                            topics: cachedPrefs.topics,
+                            schedules: cachedPrefs.schedules,
+                            scheduleTimes: updatedTimes,
+                            preferences: cachedPrefs.preferences,
+                            timezone: cachedPrefs.timezone
+                        )
+                    }
+                    saveCachedPreferences(cachedPrefs)
+                }
                 completion(.success(()))
             case .failure(let error):
                 completion(.failure(error))
@@ -541,6 +599,22 @@ public enum CopyLab {
             switch result {
             case .success:
                 print("📬 CopyLab: Updated user preferences")
+                // Update cached preferences to keep local state in sync
+                if var cachedPrefs = getCachedNotificationPreferences() {
+                    var updatedPrefs = cachedPrefs.preferences
+                    for (prefId, enabled) in preferences {
+                        updatedPrefs[prefId] = enabled
+                    }
+                    let newCachedPrefs = NotificationPreferences(
+                        osPermission: cachedPrefs.osPermission,
+                        topics: cachedPrefs.topics,
+                        schedules: cachedPrefs.schedules,
+                        scheduleTimes: cachedPrefs.scheduleTimes,
+                        preferences: updatedPrefs,
+                        timezone: cachedPrefs.timezone
+                    )
+                    saveCachedPreferences(newCachedPrefs)
+                }
                 completion(.success(()))
             case .failure(let error):
                 completion(.failure(error))

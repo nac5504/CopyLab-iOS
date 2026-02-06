@@ -43,6 +43,23 @@ public struct NotificationPreferences: Codable, Sendable {
         preferences = try container.decodeIfPresent([String: Bool].self, forKey: .preferences) ?? [:]
         timezone = try container.decodeIfPresent(String.self, forKey: .timezone)
     }
+    
+    /// Memberwise initializer for creating modified copies
+    public init(
+        osPermission: String,
+        topics: [String],
+        schedules: [String: Bool],
+        scheduleTimes: [String: String],
+        preferences: [String: Bool],
+        timezone: String?
+    ) {
+        self.osPermission = osPermission
+        self.topics = topics
+        self.schedules = schedules
+        self.scheduleTimes = scheduleTimes
+        self.preferences = preferences
+        self.timezone = timezone
+    }
 }
 
 /// A topic/category that users can subscribe to
