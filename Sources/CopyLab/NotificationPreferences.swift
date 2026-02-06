@@ -20,6 +20,8 @@ public struct NotificationPreferences: Codable, Sendable {
     public let schedules: [String: Bool]
     /// User's preferred times for schedules (schedule_id -> "HH:mm")
     public let scheduleTimes: [String: String]
+    /// Generic preference toggles (preference_id -> enabled)
+    public let preferences: [String: Bool]
     /// User's timezone identifier (e.g., "America/New_York")
     public let timezone: String?
     
@@ -28,6 +30,7 @@ public struct NotificationPreferences: Codable, Sendable {
         case topics
         case schedules
         case scheduleTimes = "schedule_times"
+        case preferences
         case timezone
     }
     
@@ -37,6 +40,7 @@ public struct NotificationPreferences: Codable, Sendable {
         topics = try container.decodeIfPresent([String].self, forKey: .topics) ?? []
         schedules = try container.decodeIfPresent([String: Bool].self, forKey: .schedules) ?? [:]
         scheduleTimes = try container.decodeIfPresent([String: String].self, forKey: .scheduleTimes) ?? [:]
+        preferences = try container.decodeIfPresent([String: Bool].self, forKey: .preferences) ?? [:]
         timezone = try container.decodeIfPresent(String.self, forKey: .timezone)
     }
 }

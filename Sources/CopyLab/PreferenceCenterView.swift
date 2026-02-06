@@ -446,8 +446,9 @@ class PreferenceCenterViewModel: ObservableObject {
         for (scheduleId, timeStr) in prefs.scheduleTimes {
             self.scheduleTimes[scheduleId] = self.parseTime(timeStr)
         }
-        // Need to merge generic preferences too if we had them in NotificationPreferences model
-        // but current model only maps specific fields. 
+        for (prefId, enabled) in prefs.preferences {
+            self.preferenceStates[prefId] = enabled
+        }
         
         self.osPermissionStatus = prefs.osPermission
     }
