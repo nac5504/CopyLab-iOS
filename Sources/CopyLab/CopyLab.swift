@@ -9,13 +9,14 @@ public enum CopyLab {
     
     private static var apiKey: String?
     private static var identifiedUserId: String?
+    private static var customBaseURL: String?
     private static let userDefaults = UserDefaults.standard
     private static let installIdKey = "copylab_install_id"
     private static let configCacheKey = "copylab_config_cache"
     private static let prefsCacheKey = "copylab_prefs_cache"
     
     /// SDK Version
-    public static let sdkVersion = "2.6.3"
+    public static let sdkVersion = "2.6.4"
     
     private static var pendingActions: [() -> Void] = []
     
@@ -74,7 +75,7 @@ public enum CopyLab {
     
     /// Set a custom base URL for the API (useful for testing).
     public static func setBaseURL(_ url: String) {
-        self.baseURL = url
+        self.customBaseURL = url
     }
     
     /// Identify the current user with their User ID from your system.
@@ -155,16 +156,23 @@ public enum CopyLab {
             return
         }
         
-        // 2nd Gen Cloud Run URLs: https://[function-name]-yhp3w7ihma-uc.a.run.app
-        // Function names in the subdomain have underscores replaced with hyphens.
-        let formattedEndpoint = endpoint.replacingOccurrences(of: "_", with: "-")
-        guard let url = URL(string: "https://\(formattedEndpoint)\(runSuffix)") else {
+        let url: URL?
+        if let custom = customBaseURL {
+            url = URL(string: "\(custom)/\(endpoint)")
+        } else {
+            // 2nd Gen Cloud Run URLs: https://[function-name]-yhp3w7ihma-uc.a.run.app
+            // Function names in the subdomain have underscores replaced with hyphens.
+            let formattedEndpoint = endpoint.replacingOccurrences(of: "_", with: "-")
+            url = URL(string: "https://\(formattedEndpoint)\(runSuffix)")
+        }
+        
+        guard let finalURL = url else {
             print("⚠️ CopyLab: Invalid URL for endpoint: \(endpoint)")
             completion?(.failure(CopyLabError.invalidURL))
             return
         }
         
-        var request = URLRequest(url: url)
+        var request = URLRequest(url: finalURL)
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(apiKey, forHTTPHeaderField: "X-API-Key")
@@ -213,18 +221,25 @@ public enum CopyLab {
             return
         }
         
-        // Handle endpoint with query parameters (e.g. "prefs?user_id=123")
-        let components = endpoint.split(separator: "?", maxSplits: 1, omittingEmptySubsequences: true)
-        let functionName = String(components[0]).replacingOccurrences(of: "_", with: "-")
-        let queryString = components.count > 1 ? "?\(components[1])" : ""
+        let url: URL?
+        if let custom = customBaseURL {
+            url = URL(string: "\(custom)/\(endpoint)")
+        } else {
+            // Handle endpoint with query parameters (e.g. "prefs?user_id=123")
+            let components = endpoint.split(separator: "?", maxSplits: 1, omittingEmptySubsequences: true)
+            let functionName = String(components[0]).replacingOccurrences(of: "_", with: "-")
+            let queryString = components.count > 1 ? "?\(components[1])" : ""
+            
+            url = URL(string: "https://\(functionName)\(runSuffix)\(queryString)")
+        }
         
-        guard let url = URL(string: "https://\(functionName)\(runSuffix)\(queryString)") else {
+        guard let finalURL = url else {
             print("⚠️ CopyLab: Invalid URL for endpoint: \(endpoint)")
             completion(.failure(CopyLabError.invalidURL))
             return
         }
         
-        var request = URLRequest(url: url)
+        var request = URLRequest(url: finalURL)
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(apiKey, forHTTPHeaderField: "X-API-Key")
@@ -696,7 +711,7 @@ public enum CopyLab {
             case .success:
                 print("📬 CopyLab: Updated user preferences")
                 // Update cached preferences to keep local state in sync
-                if var cachedPrefs = getCachedNotificationPreferences() {
+                if let cachedPrefs = getCachedNotificationPreferences() {
                     var updatedPrefs = cachedPrefs.preferences
                     for (prefId, enabled) in preferences {
                         updatedPrefs[prefId] = enabled
