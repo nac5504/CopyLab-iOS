@@ -17,7 +17,7 @@ public enum CopyLab {
     private static let prefsCacheKey = "copylab_prefs_cache"
     
     /// SDK Version
-    public static let sdkVersion = "2.6.2"
+    public static let sdkVersion = "2.7.0"
     
     private static var pendingActions: [() -> Void] = []
     
@@ -599,7 +599,7 @@ public enum CopyLab {
             body["timezone"] = TimeZone.current.identifier
         }
         
-        makeAPIRequest(endpoint: "update_notification_preferences", body: body) { result in
+        makeAPIRequest(endpoint: "update_user_preferences", body: body) { result in
             switch result {
             case .success:
                 print("📬 CopyLab: Updated notification preferences")
