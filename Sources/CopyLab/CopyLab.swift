@@ -510,8 +510,43 @@ public enum CopyLab {
         }
     }
 
+    // MARK: - User Attributes
+
+    /// Sets user attributes that are used as fallback variables when generating
+    /// notification content. Attributes are merged with any existing values.
+    ///
+    /// - Parameters:
+    ///   - attributes: A dictionary of string key-value pairs (e.g., `["user_name": "Nick"]`)
+    ///   - completion: Optional callback with the result
+    public static func setUserAttributes(
+        _ attributes: [String: String],
+        completion: ((Result<Void, Error>) -> Void)? = nil
+    ) {
+        guard identifiedUserId != nil else {
+            print("⏳ CopyLab: Queueing setUserAttributes until user is identified")
+            pendingActions.append { setUserAttributes(attributes, completion: completion) }
+            return
+        }
+
+        let body: [String: Any] = [
+            "user_id": currentUserId,
+            "user_attributes": attributes
+        ]
+
+        makeAPIRequest(endpoint: "set_user_attributes", body: body) { result in
+            switch result {
+            case .success:
+                print("📋 CopyLab: User attributes updated")
+                completion?(.success(()))
+            case .failure(let error):
+                print("⚠️ CopyLab: Error setting user attributes: \(error.localizedDescription)")
+                completion?(.failure(error))
+            }
+        }
+    }
+
     // MARK: - Notification Preferences
-    
+
     /// Fetches the current user's notification preferences.
     /// - Parameter completion: Callback with the user's preferences or an error
     public static func getNotificationPreferences(completion: @escaping (Result<NotificationPreferences, Error>) -> Void) {
@@ -771,6 +806,18 @@ public enum CopyLab {
         try await withCheckedThrowingContinuation { continuation in
             getPreferenceCenterConfig { result in
                 continuation.resume(with: result)
+            }
+        }
+    }
+
+    /// Async version of setUserAttributes
+    @available(iOS 13.0, macOS 10.15, *)
+    public static func setUserAttributes(_ attributes: [String: String]) async throws {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            setUserAttributes(attributes) { result in
+                if let result = result {
+                    continuation.resume(with: result)
+                }
             }
         }
     }
