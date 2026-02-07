@@ -9,6 +9,7 @@ public enum CopyLab {
     
     private static var apiKey: String?
     private static var identifiedUserId: String?
+    private static var baseURL = "https://us-central1-copylab-3f220.cloudfunctions.net"
     private static var customBaseURL: String?
     private static let userDefaults = UserDefaults.standard
     private static let installIdKey = "copylab_install_id"
@@ -16,7 +17,7 @@ public enum CopyLab {
     private static let prefsCacheKey = "copylab_prefs_cache"
     
     /// SDK Version
-    public static let sdkVersion = "2.6.4"
+    public static let sdkVersion = "2.6.5"
     
     private static var pendingActions: [() -> Void] = []
     
@@ -140,7 +141,6 @@ public enum CopyLab {
         return "unknown"
     }
     
-    private static let runSuffix = "-yhp3w7ihma-uc.a.run.app"
     
     // MARK: - API Request Helper
     
@@ -160,10 +160,7 @@ public enum CopyLab {
         if let custom = customBaseURL {
             url = URL(string: "\(custom)/\(endpoint)")
         } else {
-            // 2nd Gen Cloud Run URLs: https://[function-name]-yhp3w7ihma-uc.a.run.app
-            // Function names in the subdomain have underscores replaced with hyphens.
-            let formattedEndpoint = endpoint.replacingOccurrences(of: "_", with: "-")
-            url = URL(string: "https://\(formattedEndpoint)\(runSuffix)")
+            url = URL(string: "\(baseURL)/\(endpoint)")
         }
         
         guard let finalURL = url else {
@@ -225,12 +222,7 @@ public enum CopyLab {
         if let custom = customBaseURL {
             url = URL(string: "\(custom)/\(endpoint)")
         } else {
-            // Handle endpoint with query parameters (e.g. "prefs?user_id=123")
-            let components = endpoint.split(separator: "?", maxSplits: 1, omittingEmptySubsequences: true)
-            let functionName = String(components[0]).replacingOccurrences(of: "_", with: "-")
-            let queryString = components.count > 1 ? "?\(components[1])" : ""
-            
-            url = URL(string: "https://\(functionName)\(runSuffix)\(queryString)")
+            url = URL(string: "\(baseURL)/\(endpoint)")
         }
         
         guard let finalURL = url else {
