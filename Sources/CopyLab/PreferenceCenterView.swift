@@ -14,6 +14,8 @@ import UIKit
 @available(iOS 14.0, *)
 public struct PreferenceCenterView: View {
     @StateObject private var viewModel = PreferenceCenterViewModel()
+    @State private var showDisableAlert = false
+
     
     public init() {}
     
@@ -43,8 +45,13 @@ public struct PreferenceCenterView: View {
                     Section {
                         SystemPermissionCard(
                             status: viewModel.osPermissionStatus,
+                            onRequestPermissions: viewModel.requestSystemPermissions,
+                            onDisablePermissions: {
+                                showDisableAlert = true
+                            },
                             onOpenSettings: viewModel.openSystemSettings
                         )
+
                     }
                     
                     // Preferences Section (NEW - gates placements)
@@ -117,6 +124,16 @@ public struct PreferenceCenterView: View {
             }
         }
         .navigationTitle("Notification Settings")
+        .alert(isPresented: $showDisableAlert) {
+            Alert(
+                title: Text(CopyLab.disableNotificationsAlertConfig.title),
+                message: Text(CopyLab.disableNotificationsAlertConfig.message),
+                primaryButton: .destructive(Text(CopyLab.disableNotificationsAlertConfig.confirmTitle)) {
+                    viewModel.openSystemSettings()
+                },
+                secondaryButton: .cancel(Text(CopyLab.disableNotificationsAlertConfig.cancelTitle))
+            )
+        }
         .onAppear {
             viewModel.loadData()
         }
@@ -128,6 +145,8 @@ public struct PreferenceCenterView: View {
 @available(iOS 14.0, *)
 private struct SystemPermissionCard: View {
     let status: String
+    let onRequestPermissions: () -> Void
+    let onDisablePermissions: () -> Void
     let onOpenSettings: () -> Void
     
     var body: some View {
@@ -147,8 +166,17 @@ private struct SystemPermissionCard: View {
                 
                 Spacer()
                 
-                if status != "authorized" {
-                    Button("Settings") {
+                if status == "authorized" || status == "provisional" {
+                    Button("Disable") {
+                        onDisablePermissions()
+                    }
+                    .foregroundColor(.red)
+                } else if status == "notDetermined" {
+                    Button("Enable") {
+                        onRequestPermissions()
+                    }
+                } else if status == "denied" {
+                    Button("Enable in Settings") {
                         onOpenSettings()
                     }
                 }
@@ -503,6 +531,20 @@ class PreferenceCenterViewModel: ObservableObject {
     func openSystemSettings() {
         if let url = URL(string: UIApplication.openSettingsURLString) {
             UIApplication.shared.open(url)
+        }
+    }
+    
+    func requestSystemPermissions() {
+        CopyLab.requestNotificationPermission { [weak self] granted, error in
+            if let error = error {
+                print("⚠️ CopyLab: Error requesting permissions: \(error.localizedDescription)")
+            }
+            // Status is automatically synced by the SDK, just refresh local state
+            UNUserNotificationCenter.current().getNotificationSettings { [weak self] settings in
+                DispatchQueue.main.async {
+                    self?.osPermissionStatus = self?.mapAuthorizationStatus(settings.authorizationStatus) ?? "unknown"
+                }
+            }
         }
     }
     

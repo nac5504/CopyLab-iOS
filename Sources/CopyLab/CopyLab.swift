@@ -21,6 +21,31 @@ public enum CopyLab {
     
     private static var pendingActions: [() -> Void] = []
     
+    // MARK: - Public Configuration
+    
+    /// Configuration for the "Disable Notifications" alert in the Preference Center
+    public struct DisableNotificationsAlertConfig {
+        public let title: String
+        public let message: String
+        public let cancelTitle: String
+        public let confirmTitle: String
+        
+        public init(title: String, message: String, cancelTitle: String = "Cancel", confirmTitle: String = "Disable") {
+            self.title = title
+            self.message = message
+            self.cancelTitle = cancelTitle
+            self.confirmTitle = confirmTitle
+        }
+    }
+    
+    /// Current configuration for the disable notifications alert.
+    /// Set this in your app configuration to customize the text.
+    public static var disableNotificationsAlertConfig = DisableNotificationsAlertConfig(
+        title: "Disable Notifications?",
+        message: "You will miss out on important updates. Are you sure you want to disable notifications?",
+        confirmTitle: "Open Settings"
+    )
+    
     private static let session: URLSession = {
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 30
@@ -391,6 +416,7 @@ public enum CopyLab {
                 "platform": "ios"
             ]
             
+            
             makeAPIRequest(endpoint: "sync_notification_permission", body: body) { result in
                 switch result {
                 case .success:
@@ -398,6 +424,19 @@ public enum CopyLab {
                 case .failure(let error):
                     print("⚠️ CopyLab: Error syncing notification status: \(error.localizedDescription)")
                 }
+            }
+        }
+    }
+    
+    /// Requests notification permissions from the user.
+    /// - Parameter completion: Callback with the granted status and any error
+    public static func requestNotificationPermission(completion: @escaping (Bool, Error?) -> Void) {
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, error in
+            // Sync status regardless of outcome
+            syncNotificationPermissionStatus()
+            
+            DispatchQueue.main.async {
+                completion(granted, error)
             }
         }
     }
