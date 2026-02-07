@@ -9,8 +9,6 @@ public enum CopyLab {
     
     private static var apiKey: String?
     private static var identifiedUserId: String?
-    private static var baseURL = "https://us-central1-copylab-3f220.cloudfunctions.net"
-    
     private static let userDefaults = UserDefaults.standard
     private static let installIdKey = "copylab_install_id"
     private static let configCacheKey = "copylab_config_cache"
@@ -141,6 +139,8 @@ public enum CopyLab {
         return "unknown"
     }
     
+    private static let runSuffix = "-yhp3w7ihma-uc.a.run.app"
+    
     // MARK: - API Request Helper
     
     private static func makeAPIRequest(
@@ -155,7 +155,10 @@ public enum CopyLab {
             return
         }
         
-        guard let url = URL(string: "\(baseURL)/\(endpoint)") else {
+        // 2nd Gen Cloud Run URLs: https://[function-name]-yhp3w7ihma-uc.a.run.app
+        // Function names in the subdomain have underscores replaced with hyphens.
+        let formattedEndpoint = endpoint.replacingOccurrences(of: "_", with: "-")
+        guard let url = URL(string: "https://\(formattedEndpoint)\(runSuffix)") else {
             print("⚠️ CopyLab: Invalid URL for endpoint: \(endpoint)")
             completion?(.failure(CopyLabError.invalidURL))
             return
@@ -198,7 +201,6 @@ public enum CopyLab {
         }.resume()
     }
     
-    /// Generic API request helper for Decodable types
     private static func makeDecodableAPIRequest<T: Decodable>(
         endpoint: String,
         method: String = "GET",
@@ -211,7 +213,12 @@ public enum CopyLab {
             return
         }
         
-        guard let url = URL(string: "\(baseURL)/\(endpoint)") else {
+        // Handle endpoint with query parameters (e.g. "prefs?user_id=123")
+        let components = endpoint.split(separator: "?", maxSplits: 1, omittingEmptySubsequences: true)
+        let functionName = String(components[0]).replacingOccurrences(of: "_", with: "-")
+        let queryString = components.count > 1 ? "?\(components[1])" : ""
+        
+        guard let url = URL(string: "https://\(functionName)\(runSuffix)\(queryString)") else {
             print("⚠️ CopyLab: Invalid URL for endpoint: \(endpoint)")
             completion(.failure(CopyLabError.invalidURL))
             return
