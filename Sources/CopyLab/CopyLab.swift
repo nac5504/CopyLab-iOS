@@ -815,9 +815,7 @@ public enum CopyLab {
     public static func setUserAttributes(_ attributes: [String: String]) async throws {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             setUserAttributes(attributes) { result in
-                if let result = result {
-                    continuation.resume(with: result)
-                }
+                continuation.resume(with: result)
             }
         }
     }
