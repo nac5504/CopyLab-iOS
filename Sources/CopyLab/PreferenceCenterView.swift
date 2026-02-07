@@ -113,7 +113,7 @@ public struct PreferenceCenterView: View {
                             viewModel.sendTestNotification()
                         }) {
                             HStack {
-                                Text("Send Test Notification (Daily Reminder)")
+                                Text("Send Test Notification (Daily Craving)")
                                 Spacer()
                                 Image(systemName: "paperplane")
                             }
@@ -552,7 +552,7 @@ class PreferenceCenterViewModel: ObservableObject {
     
     func sendTestNotification() {
         print("🔍 CopyLab: Requesting test notification...")
-        CopyLab.sendTestNotification { [weak self] result in
+        CopyLab.sendTestNotification(placementId: "daily_nomi_craving") { [weak self] result in
             DispatchQueue.main.async {
                 switch result {
                 case .success:
