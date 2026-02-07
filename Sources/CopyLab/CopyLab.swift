@@ -33,10 +33,17 @@ public enum CopyLab {
     /// This connects to the CopyLab backend using secure HTTPS API calls.
     /// Call this in your AppDelegate or App init.
     ///
-    /// - Parameter apiKey: Your CopyLab API Key (starts with cl_)
-    public static func configure(apiKey: String) {
+    /// - Parameters:
+    ///   - apiKey: Your CopyLab API Key (starts with cl_)
+    ///   - pushToken: Optional FCM token to register immediately
+    public static func configure(apiKey: String, pushToken: String? = nil) {
         self.apiKey = apiKey
         print("✅ CopyLab: Configured with API Key: \(apiKey.prefix(15))...")
+        
+        // Register token if provided
+        if let token = pushToken {
+            registerPushToken(token)
+        }
         
         // Prefetch app configuration
         prefetchPreferenceCenterConfig()
@@ -50,10 +57,17 @@ public enum CopyLab {
     /// Identify the current user with their User ID from your system.
     /// Call this after your user logs in.
     ///
-    /// - Parameter userId: The unique ID of the user in your database.
-    public static func identify(userId: String) {
+    /// - Parameters:
+    ///   - userId: The unique ID of the user in your database.
+    ///   - pushToken: Optional FCM token to register for this user
+    public static func identify(userId: String, pushToken: String? = nil) {
         self.identifiedUserId = userId
         print("👤 CopyLab: Identified user: \(userId)")
+        
+        // Register token if provided
+        if let token = pushToken {
+            registerPushToken(token)
+        }
         
         // Execute pending actions now that we have an identity
         let actions = pendingActions
@@ -258,6 +272,41 @@ public enum CopyLab {
                 print("📊 CopyLab: Logged push_open event")
             case .failure(let error):
                 print("⚠️ CopyLab: Error logging push_open: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    /// Sets the APNs device token from raw Data received in didRegisterForRemoteNotificationsWithDeviceToken.
+    /// This converts the data to a hex string and registers it with CopyLab.
+    ///
+    /// - Parameter data: The raw device token Data
+    public static func setDeviceToken(_ data: Data) {
+        let token = data.map { String(format: "%02.2hhx", $0) }.joined()
+        registerPushToken(token)
+    }
+    
+    /// Registers a device token string with CopyLab.
+    ///
+    /// - Parameter token: Hex-encoded device token string
+    public static func registerPushToken(_ token: String) {
+        guard identifiedUserId != nil else {
+            print("⏳ CopyLab: Queueing push token registration until user is identified")
+            pendingActions.append { registerPushToken(token) }
+            return
+        }
+        
+        let body: [String: Any] = [
+            "user_id": currentUserId,
+            "token": token,
+            "platform": "ios"
+        ]
+        
+        makeAPIRequest(endpoint: "register_push_token", body: body) { result in
+            switch result {
+            case .success:
+                print("📊 CopyLab: Device token registered successfully")
+            case .failure(let error):
+                print("⚠️ CopyLab: Error registering device token: \(error.localizedDescription)")
             }
         }
     }
@@ -618,6 +667,38 @@ public enum CopyLab {
                 }
                 completion(.success(()))
             case .failure(let error):
+                completion(.failure(error))
+            }
+        }
+    }
+    
+    // MARK: - Debug / Testing
+    
+    /// Sends a test notification to the current user (Debug Only).
+    /// Uses the 'daily_nomi_reminder' placement by default.
+    public static func sendTestNotification(
+        placementId: String = "daily_nomi_reminder",
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        
+        // Ensure we have a user context (either identified or anonymous is fine, but backend expects ID in list)
+        let targetId = currentUserId
+        
+        // Construct payload for send_notification_to_users
+        let body: [String: Any] = [
+            "placement_id": placementId,
+            "user_ids": [targetId],
+            "variables": ["user_name": "Valued User"], 
+            "data": ["is_test": true]
+        ]
+        
+        makeAPIRequest(endpoint: "send_notification_to_users", body: body) { result in
+            switch result {
+            case .success:
+                print("✅ CopyLab: Test notification sent successfully to \(targetId)")
+                completion(.success(()))
+            case .failure(let error):
+                print("❌ CopyLab: Failed to send test notification: \(error.localizedDescription)")
                 completion(.failure(error))
             }
         }

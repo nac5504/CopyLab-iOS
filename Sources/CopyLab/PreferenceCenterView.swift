@@ -99,6 +99,19 @@ public struct PreferenceCenterView: View {
                             }
                         }
                     }
+                    
+                    // Developer Tools Section
+                    Section(header: Text("Developer Tools")) {
+                        Button(action: {
+                            viewModel.sendTestNotification()
+                        }) {
+                            HStack {
+                                Text("Send Test Notification (Daily Reminder)")
+                                Spacer()
+                                Image(systemName: "paperplane")
+                            }
+                        }
+                    }
                 }
                 .listStyle(InsetGroupedListStyle())
             }
@@ -490,6 +503,23 @@ class PreferenceCenterViewModel: ObservableObject {
     func openSystemSettings() {
         if let url = URL(string: UIApplication.openSettingsURLString) {
             UIApplication.shared.open(url)
+        }
+    }
+    
+    // MARK: - Actions
+    
+    func sendTestNotification() {
+        print("🔍 CopyLab: Requesting test notification...")
+        CopyLab.sendTestNotification { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success:
+                    print("✅ CopyLab: Test notification request succeeded")
+                    // Maybe show a toast or alert? for now just print
+                case .failure(let error):
+                    self?.error = error
+                }
+            }
         }
     }
     
