@@ -17,7 +17,7 @@ public enum CopyLab {
     private static let prefsCacheKey = "copylab_prefs_cache"
     
     /// SDK Version
-    public static let sdkVersion = "2.8.3"
+    public static let sdkVersion = "2.8.5"
     
     private static var pendingActions: [() -> Void] = []
     
@@ -49,6 +49,7 @@ public enum CopyLab {
     #if canImport(UIKit)
     /// Current style for the PreferenceCenterView.
     /// Set this before presenting the view to customize its appearance.
+    @available(iOS 14.0, *)
     public static var preferenceCenterStyle = PreferenceCenterStyle()
     #endif
     
