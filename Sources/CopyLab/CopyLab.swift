@@ -17,7 +17,7 @@ public enum CopyLab {
     private static let prefsCacheKey = "copylab_prefs_cache"
     
     /// SDK Version
-    public static let sdkVersion = "2.7.0"
+    public static let sdkVersion = "2.8.3"
     
     private static var pendingActions: [() -> Void] = []
     
@@ -45,6 +45,12 @@ public enum CopyLab {
         message: "You will miss out on important updates. Are you sure you want to disable notifications?",
         confirmTitle: "Open Settings"
     )
+
+    #if canImport(UIKit)
+    /// Current style for the PreferenceCenterView.
+    /// Set this before presenting the view to customize its appearance.
+    public static var preferenceCenterStyle = PreferenceCenterStyle()
+    #endif
     
     private static let session: URLSession = {
         let config = URLSessionConfiguration.default
@@ -739,8 +745,108 @@ public enum CopyLab {
         }
     }
     
+    // MARK: - Preference Management
+
+    /// Returns the user's preferences as `UserPreference` objects, merging config with user state.
+    ///
+    /// Uses cached config and user preference data. Call after `configure()` and `identify()`.
+    ///
+    /// - Parameter preferenceId: Optional ID to return a single preference. If nil, returns all.
+    /// - Returns: An array of `UserPreference` objects (empty if config not cached, or single-element if filtered).
+    public static func getPreferences(_ preferenceId: String? = nil) -> [UserPreference] {
+        guard let config = getCachedPreferenceCenterConfig() else { return [] }
+        var prefItems = config.sections
+            .first(where: { $0.type == .preferences })?
+            .items ?? []
+
+        if let id = preferenceId {
+            prefItems = prefItems.filter { $0.id == id }
+        }
+
+        let userPrefs = getCachedNotificationPreferences()
+
+        return prefItems.map { item in
+            let enabled = userPrefs?.preferences[item.id] ?? item.enabledByDefault ?? true
+
+            var time: String? = nil
+            if item.parameters?.schedule != nil {
+                time = userPrefs?.scheduleTimes[item.id] ?? item.parameters?.schedule?.defaultTime
+            }
+
+            return UserPreference(
+                id: item.id,
+                title: item.title,
+                description: item.description,
+                enabledByDefault: item.enabledByDefault ?? true,
+                parameters: item.parameters,
+                enabled: enabled,
+                time: time
+            )
+        }
+    }
+
+    /// Updates a single preference's enabled state and optional time.
+    ///
+    /// Persists the change to the server and updates the local cache on success.
+    ///
+    /// - Parameters:
+    ///   - preferenceId: The preference ID to update
+    ///   - enabled: Whether the preference should be enabled
+    ///   - time: Optional time in "HH:mm" format (only for preferences with a schedule parameter)
+    ///   - completion: Callback with success or error
+    public static func setPreference(
+        _ preferenceId: String,
+        enabled: Bool,
+        time: String? = nil,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        guard identifiedUserId != nil else {
+            print("⚠️ CopyLab: User not identified. Call identify(userId:) first.")
+            completion(.failure(CopyLabError.notConfigured))
+            return
+        }
+
+        var body: [String: Any] = [
+            "user_id": currentUserId,
+            "preferences": [preferenceId: enabled]
+        ]
+
+        if let time = time {
+            body["schedule_times"] = [preferenceId: time]
+            body["timezone"] = TimeZone.current.identifier
+        }
+
+        makeAPIRequest(endpoint: "update_user_preferences", body: body) { result in
+            switch result {
+            case .success:
+                print("📬 CopyLab: Updated preference \(preferenceId)")
+                // Update cached preferences
+                if let cachedPrefs = getCachedNotificationPreferences() {
+                    var updatedPrefs = cachedPrefs.preferences
+                    updatedPrefs[preferenceId] = enabled
+                    var updatedTimes = cachedPrefs.scheduleTimes
+                    if let time = time {
+                        updatedTimes[preferenceId] = time
+                    }
+                    let newCachedPrefs = NotificationPreferences(
+                        osPermission: cachedPrefs.osPermission,
+                        topics: cachedPrefs.topics,
+                        schedules: cachedPrefs.schedules,
+                        scheduleTimes: updatedTimes,
+                        preferences: updatedPrefs,
+                        timezone: cachedPrefs.timezone
+                    )
+                    saveCachedPreferences(newCachedPrefs)
+                }
+                completion(.success(()))
+            case .failure(let error):
+                completion(.failure(error))
+            }
+        }
+    }
+
     // MARK: - Debug / Testing
-    
+
     /// Sends a test notification to the current user (Debug Only).
     /// Uses the 'daily_nomi_reminder' placement by default.
     public static func sendTestNotification(
@@ -798,6 +904,16 @@ public enum CopyLab {
     public static func getPreferenceCenterConfig() async throws -> PreferenceCenterConfig {
         try await withCheckedThrowingContinuation { continuation in
             getPreferenceCenterConfig { result in
+                continuation.resume(with: result)
+            }
+        }
+    }
+
+    /// Async version of setPreference
+    @available(iOS 13.0, macOS 10.15, *)
+    public static func setPreference(_ preferenceId: String, enabled: Bool, time: String? = nil) async throws {
+        try await withCheckedThrowingContinuation { continuation in
+            setPreference(preferenceId, enabled: enabled, time: time) { result in
                 continuation.resume(with: result)
             }
         }

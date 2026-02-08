@@ -3,40 +3,242 @@ import SwiftUI
 import UserNotifications
 import UIKit
 
+// MARK: - PreferenceCenterStyle
+
+/// Style configuration for the PreferenceCenterView.
+/// All properties are optional — nil uses SwiftUI defaults.
+///
+/// Usage:
+/// ```swift
+/// // Global (applies to all PreferenceCenterView instances)
+/// CopyLab.preferenceCenterStyle = PreferenceCenterStyle(
+///     backgroundColor: .black,
+///     primaryTextColor: .white,
+///     toggleTintColor: .purple
+/// )
+///
+/// // Per-instance
+/// PreferenceCenterView(style: PreferenceCenterStyle(accentColor: .mint))
+/// ```
+@available(iOS 14.0, *)
+public struct PreferenceCenterStyle {
+    // MARK: - Navigation
+    /// Navigation bar title text (default: "Notification Settings")
+    public var navigationTitle: String
+
+    // MARK: - Sheet / Page Background
+    /// Background color of the entire sheet/page behind the list
+    public var backgroundColor: Color?
+
+    // MARK: - List / Section
+    /// Background color of section/card rows (the grouped inset cards)
+    public var sectionBackgroundColor: Color?
+    /// Color of section header text ("Preferences", "Categories", etc.)
+    public var sectionHeaderColor: Color?
+    /// Font for section header text
+    public var sectionHeaderFont: Font?
+
+    // MARK: - Row Text
+    /// Primary text color (row titles like "Push Notifications", topic names, etc.)
+    public var primaryTextColor: Color?
+    /// Font for primary row text
+    public var primaryTextFont: Font?
+    /// Secondary/description text color (status captions, contextual icons)
+    public var secondaryTextColor: Color?
+    /// Font for secondary/description text
+    public var secondaryTextFont: Font?
+
+    // MARK: - Toggle
+    /// Tint color for toggles when ON
+    public var toggleTintColor: Color?
+
+    // MARK: - Buttons
+    /// Accent/tint color for action buttons ("Enable", "Send Test Notification", etc.)
+    public var accentColor: Color?
+    /// Color for destructive buttons ("Disable")
+    public var destructiveColor: Color?
+
+    // MARK: - System Permission Card
+    /// Override colors for permission status icons
+    public var permissionAuthorizedColor: Color?
+    public var permissionDeniedColor: Color?
+    public var permissionProvisionalColor: Color?
+    public var permissionUnknownColor: Color?
+    /// Font for the permission card title ("Push Notifications")
+    public var permissionTitleFont: Font?
+
+    // MARK: - Loading & Error States
+    /// Color of the loading spinner
+    public var loadingColor: Color?
+    /// Color of the error icon
+    public var errorIconColor: Color?
+    /// Color of the error title text
+    public var errorTitleColor: Color?
+
+    // MARK: - Date Picker
+    /// Tint/accent color for the time pickers in schedule rows
+    public var datePickerTintColor: Color?
+
+    public init(
+        navigationTitle: String = "Notification Settings",
+        backgroundColor: Color? = nil,
+        sectionBackgroundColor: Color? = nil,
+        sectionHeaderColor: Color? = nil,
+        sectionHeaderFont: Font? = nil,
+        primaryTextColor: Color? = nil,
+        primaryTextFont: Font? = nil,
+        secondaryTextColor: Color? = nil,
+        secondaryTextFont: Font? = nil,
+        toggleTintColor: Color? = nil,
+        accentColor: Color? = nil,
+        destructiveColor: Color? = nil,
+        permissionAuthorizedColor: Color? = nil,
+        permissionDeniedColor: Color? = nil,
+        permissionProvisionalColor: Color? = nil,
+        permissionUnknownColor: Color? = nil,
+        permissionTitleFont: Font? = nil,
+        loadingColor: Color? = nil,
+        errorIconColor: Color? = nil,
+        errorTitleColor: Color? = nil,
+        datePickerTintColor: Color? = nil
+    ) {
+        self.navigationTitle = navigationTitle
+        self.backgroundColor = backgroundColor
+        self.sectionBackgroundColor = sectionBackgroundColor
+        self.sectionHeaderColor = sectionHeaderColor
+        self.sectionHeaderFont = sectionHeaderFont
+        self.primaryTextColor = primaryTextColor
+        self.primaryTextFont = primaryTextFont
+        self.secondaryTextColor = secondaryTextColor
+        self.secondaryTextFont = secondaryTextFont
+        self.toggleTintColor = toggleTintColor
+        self.accentColor = accentColor
+        self.destructiveColor = destructiveColor
+        self.permissionAuthorizedColor = permissionAuthorizedColor
+        self.permissionDeniedColor = permissionDeniedColor
+        self.permissionProvisionalColor = permissionProvisionalColor
+        self.permissionUnknownColor = permissionUnknownColor
+        self.permissionTitleFont = permissionTitleFont
+        self.loadingColor = loadingColor
+        self.errorIconColor = errorIconColor
+        self.errorTitleColor = errorTitleColor
+        self.datePickerTintColor = datePickerTintColor
+    }
+}
+
+// MARK: - Style Helper Extensions
+
+@available(iOS 14.0, *)
+private extension View {
+    /// Applies toggle tint color. Uses `SwitchToggleStyle(tint:)` on iOS 14,
+    /// `.tint()` on iOS 15+.
+    @ViewBuilder
+    func applyToggleTint(_ color: Color?) -> some View {
+        if let color = color {
+            if #available(iOS 15.0, *) {
+                self.tint(color)
+            } else {
+                self.toggleStyle(SwitchToggleStyle(tint: color))
+            }
+        } else {
+            self
+        }
+    }
+
+    /// Applies tint to DatePicker.
+    @ViewBuilder
+    func applyDatePickerTint(_ color: Color?) -> some View {
+        if let color = color {
+            if #available(iOS 15.0, *) {
+                self.tint(color)
+            } else {
+                self.accentColor(color)
+            }
+        } else {
+            self
+        }
+    }
+
+    /// Applies tint to ProgressView (loading spinner).
+    @ViewBuilder
+    func applyLoadingTint(_ color: Color?) -> some View {
+        if let color = color {
+            if #available(iOS 15.0, *) {
+                self.tint(color)
+            } else {
+                self.accentColor(color)
+            }
+        } else {
+            self
+        }
+    }
+
+    /// Applies background color to a List, hiding the default system background.
+    @ViewBuilder
+    func applyListBackground(_ color: Color?) -> some View {
+        if let color = color {
+            if #available(iOS 16.0, *) {
+                self.scrollContentBackground(.hidden)
+                    .background(color)
+            } else {
+                self.background(color)
+            }
+        } else {
+            self
+        }
+    }
+}
+
+// MARK: - PreferenceCenterView
+
 /// A drop-in SwiftUI view for displaying and managing notification preferences.
-/// 
+///
 /// Usage:
 /// ```swift
 /// NavigationView {
 ///     PreferenceCenterView()
 /// }
+///
+/// // With custom style:
+/// PreferenceCenterView(style: PreferenceCenterStyle(
+///     backgroundColor: .black,
+///     primaryTextColor: .white
+/// ))
 /// ```
 @available(iOS 14.0, *)
 public struct PreferenceCenterView: View {
     @StateObject private var viewModel = PreferenceCenterViewModel()
     @State private var showDisableAlert = false
 
-    
-    public init() {}
+    private let style: PreferenceCenterStyle
+
+    /// Creates a PreferenceCenterView with the given style.
+    /// - Parameter style: Optional style override. If nil, uses `CopyLab.preferenceCenterStyle`.
+    public init(style: PreferenceCenterStyle? = nil) {
+        self.style = style ?? CopyLab.preferenceCenterStyle
+    }
     
     public var body: some View {
         Group {
             if viewModel.isLoading {
                 ProgressView("Loading preferences...")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .applyLoadingTint(style.loadingColor)
             } else if let error = viewModel.error {
                 VStack(spacing: 16) {
                     Image(systemName: "exclamationmark.triangle")
                         .font(.largeTitle)
-                        .foregroundColor(.orange)
+                        .foregroundColor(style.errorIconColor ?? .orange)
                     Text("Failed to load preferences")
                         .font(.headline)
+                        .foregroundColor(style.errorTitleColor)
                     Text(error.localizedDescription)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                        .font(style.secondaryTextFont ?? .caption)
+                        .foregroundColor(style.secondaryTextColor ?? .secondary)
                     Button("Retry") {
                         viewModel.loadData()
                     }
+                    .foregroundColor(style.accentColor)
                 }
                 .padding()
             } else {
@@ -45,56 +247,62 @@ public struct PreferenceCenterView: View {
                     Section {
                         SystemPermissionCard(
                             status: viewModel.osPermissionStatus,
+                            style: style,
                             onRequestPermissions: viewModel.requestSystemPermissions,
                             onDisablePermissions: {
                                 showDisableAlert = true
                             },
                             onOpenSettings: viewModel.openSystemSettings
                         )
-
+                        .listRowBackground(style.sectionBackgroundColor)
                     }
-                    
-                    // Preferences Section (NEW - gates placements)
+
+                    // Preferences Section
                     if !viewModel.preferences.isEmpty {
-                        Section(header: Text("Preferences")) {
+                        Section(header: styledHeader("Preferences")) {
                             ForEach(viewModel.preferences) { preference in
                                 PreferenceToggleRow(
                                     preference: preference,
                                     isEnabled: viewModel.isPreferenceEnabled(preference.id),
-                                    selectedTime: viewModel.getScheduleTime(preference.id), // Reusing schedule time logic
+                                    style: style,
+                                    selectedTime: viewModel.getScheduleTime(preference.id),
                                     onToggle: { enabled in
                                         viewModel.togglePreference(preference.id, enabled: enabled)
                                     },
                                     onTimeChange: { time in
-                                        viewModel.updateScheduleTime(preference.id, time: time) // Reuse schedule time update
+                                        viewModel.updateScheduleTime(preference.id, time: time)
                                     }
                                 )
+                                .listRowBackground(style.sectionBackgroundColor)
                             }
                         }
                     }
-                    
+
                     // Topics Section - filtered by type
                     if !viewModel.visibleTopics.isEmpty {
-                        Section(header: Text("Categories")) {
+                        Section(header: styledHeader("Categories")) {
                             ForEach(viewModel.visibleTopics) { topic in
                                 TopicToggleRow(
                                     topic: topic,
                                     isSubscribed: viewModel.isSubscribedToTopic(topic.id),
+                                    style: style,
                                     onToggle: { enabled in
                                         viewModel.toggleTopic(topic.id, enabled: enabled)
                                     }
                                 )
+                                .listRowBackground(style.sectionBackgroundColor)
                             }
                         }
                     }
-                    
+
                     // Schedules Section
                     if !viewModel.schedules.isEmpty {
-                        Section(header: Text("Schedules")) {
+                        Section(header: styledHeader("Schedules")) {
                             ForEach(viewModel.schedules) { schedule in
                                 ScheduleToggleRow(
                                     schedule: schedule,
                                     isEnabled: viewModel.isScheduleEnabled(schedule.id),
+                                    style: style,
                                     selectedTime: viewModel.getScheduleTime(schedule.id),
                                     onToggle: { enabled in
                                         viewModel.toggleSchedule(schedule.id, enabled: enabled)
@@ -103,27 +311,33 @@ public struct PreferenceCenterView: View {
                                         viewModel.updateScheduleTime(schedule.id, time: time)
                                     }
                                 )
+                                .listRowBackground(style.sectionBackgroundColor)
                             }
                         }
                     }
-                    
+
                     // Developer Tools Section
-                    Section(header: Text("Developer Tools")) {
+                    Section(header: styledHeader("Developer Tools")) {
                         Button(action: {
                             viewModel.sendTestNotification()
                         }) {
                             HStack {
                                 Text("Send Test Notification (Daily Craving)")
+                                    .foregroundColor(style.primaryTextColor)
+                                    .font(style.primaryTextFont ?? .body)
                                 Spacer()
                                 Image(systemName: "paperplane")
+                                    .foregroundColor(style.accentColor)
                             }
                         }
+                        .listRowBackground(style.sectionBackgroundColor)
                     }
                 }
                 .listStyle(InsetGroupedListStyle())
+                .applyListBackground(style.backgroundColor)
             }
         }
-        .navigationTitle("Notification Settings")
+        .navigationTitle(style.navigationTitle)
         .alert(isPresented: $showDisableAlert) {
             Alert(
                 title: Text(CopyLab.disableNotificationsAlertConfig.title),
@@ -138,6 +352,12 @@ public struct PreferenceCenterView: View {
             viewModel.loadData()
         }
     }
+
+    private func styledHeader(_ title: String) -> some View {
+        Text(title)
+            .foregroundColor(style.sectionHeaderColor)
+            .font(style.sectionHeaderFont)
+    }
 }
 
 // MARK: - System Permission Card
@@ -145,46 +365,50 @@ public struct PreferenceCenterView: View {
 @available(iOS 14.0, *)
 private struct SystemPermissionCard: View {
     let status: String
+    let style: PreferenceCenterStyle
     let onRequestPermissions: () -> Void
     let onDisablePermissions: () -> Void
     let onOpenSettings: () -> Void
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Image(systemName: statusIcon)
                     .foregroundColor(statusColor)
                     .font(.title2)
-                
+
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Push Notifications")
-                        .font(.headline)
+                        .font(style.permissionTitleFont ?? .headline)
+                        .foregroundColor(style.primaryTextColor)
                     Text(statusText)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                        .font(style.secondaryTextFont ?? .caption)
+                        .foregroundColor(style.secondaryTextColor ?? .secondary)
                 }
-                
+
                 Spacer()
-                
+
                 if status == "authorized" || status == "provisional" {
                     Button("Disable") {
                         onDisablePermissions()
                     }
-                    .foregroundColor(.red)
+                    .foregroundColor(style.destructiveColor ?? .red)
                 } else if status == "notDetermined" {
                     Button("Enable") {
                         onRequestPermissions()
                     }
+                    .foregroundColor(style.accentColor)
                 } else if status == "denied" {
                     Button("Enable in Settings") {
                         onOpenSettings()
                     }
+                    .foregroundColor(style.accentColor)
                 }
             }
         }
         .padding(.vertical, 4)
     }
-    
+
     private var statusIcon: String {
         switch status {
         case "authorized": return "bell.badge.fill"
@@ -193,16 +417,16 @@ private struct SystemPermissionCard: View {
         default: return "bell"
         }
     }
-    
+
     private var statusColor: Color {
         switch status {
-        case "authorized": return .green
-        case "denied": return .red
-        case "provisional": return .orange
-        default: return .gray
+        case "authorized": return style.permissionAuthorizedColor ?? .green
+        case "denied": return style.permissionDeniedColor ?? .red
+        case "provisional": return style.permissionProvisionalColor ?? .orange
+        default: return style.permissionUnknownColor ?? .gray
         }
     }
-    
+
     private var statusText: String {
         switch status {
         case "authorized": return "Notifications are enabled"
@@ -220,70 +444,72 @@ private struct SystemPermissionCard: View {
 private struct TopicToggleRow: View {
     let topic: PreferenceCenterItem
     let isSubscribed: Bool
+    let style: PreferenceCenterStyle
     let onToggle: (Bool) -> Void
-    
+
     var body: some View {
         HStack(alignment: .center, spacing: 4) {
-            // Title on the left - wraps to multiple lines if needed
             VStack(alignment: .leading, spacing: 2) {
                 HStack {
                     Text(topic.title)
-                        .font(.body)
+                        .font(style.primaryTextFont ?? .body)
+                        .foregroundColor(style.primaryTextColor)
                         .lineLimit(nil)
                     if topic.type == .contextual {
                         Image(systemName: "arrow.triangle.2.circlepath")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(style.secondaryTextColor ?? .secondary)
                     }
                 }
             }
-            
+
             Spacer()
-            
-            // Toggle on the right
+
             Toggle("", isOn: Binding(
                 get: { isSubscribed },
                 set: { onToggle($0) }
             ))
             .labelsHidden()
+            .applyToggleTint(style.toggleTintColor)
         }
         .padding(.vertical, 4)
     }
 }
 
-// MARK: - Preference Toggle Row (NEW)
+// MARK: - Preference Toggle Row
 
 @available(iOS 14.0, *)
 private struct PreferenceToggleRow: View {
     let preference: PreferenceCenterItem
     let isEnabled: Bool
+    let style: PreferenceCenterStyle
     let selectedTime: Date
     let onToggle: (Bool) -> Void
     let onTimeChange: (Date) -> Void
-    
-    init(preference: PreferenceCenterItem, isEnabled: Bool, selectedTime: Date = Date(), onToggle: @escaping (Bool) -> Void, onTimeChange: @escaping (Date) -> Void = { _ in }) {
+
+    init(preference: PreferenceCenterItem, isEnabled: Bool, style: PreferenceCenterStyle, selectedTime: Date = Date(), onToggle: @escaping (Bool) -> Void, onTimeChange: @escaping (Date) -> Void = { _ in }) {
         self.preference = preference
         self.isEnabled = isEnabled
+        self.style = style
         self.selectedTime = selectedTime
         self.onToggle = onToggle
         self.onTimeChange = onTimeChange
     }
-    
+
     private var hasScheduleParam: Bool {
         preference.parameters?.schedule != nil
     }
-    
+
     var body: some View {
         HStack(alignment: .center, spacing: 4) {
-            // Title on the left - wraps to multiple lines if needed
             Text(preference.title)
-                .font(.body)
+                .font(style.primaryTextFont ?? .body)
+                .foregroundColor(style.primaryTextColor)
                 .lineLimit(nil)
                 .fixedSize(horizontal: false, vertical: true)
-            
+
             Spacer()
-            
-            // Optional time picker - grayed out and disabled if toggle is off
+
             if hasScheduleParam {
                 DatePicker(
                     "",
@@ -296,14 +522,15 @@ private struct PreferenceToggleRow: View {
                 .labelsHidden()
                 .disabled(!isEnabled)
                 .opacity(isEnabled ? 1.0 : 0.4)
+                .applyDatePickerTint(style.datePickerTintColor)
             }
-            
-            // Toggle on the right
+
             Toggle("", isOn: Binding(
                 get: { isEnabled },
                 set: { onToggle($0) }
             ))
             .labelsHidden()
+            .applyToggleTint(style.toggleTintColor)
         }
         .padding(.vertical, 4)
     }
@@ -315,21 +542,21 @@ private struct PreferenceToggleRow: View {
 private struct ScheduleToggleRow: View {
     let schedule: PreferenceCenterItem
     let isEnabled: Bool
+    let style: PreferenceCenterStyle
     let selectedTime: Date
     let onToggle: (Bool) -> Void
     let onTimeChange: (Date) -> Void
-    
+
     var body: some View {
         HStack(alignment: .center, spacing: 4) {
-            // Title on the left - wraps to multiple lines if needed
             Text(schedule.title)
-                .font(.body)
+                .font(style.primaryTextFont ?? .body)
+                .foregroundColor(style.primaryTextColor)
                 .lineLimit(nil)
                 .fixedSize(horizontal: false, vertical: true)
-            
+
             Spacer()
-            
-            // Optional time picker - grayed out and disabled if toggle is off
+
             if schedule.timeConfigurable == true {
                 DatePicker(
                     "",
@@ -342,14 +569,15 @@ private struct ScheduleToggleRow: View {
                 .labelsHidden()
                 .disabled(!isEnabled)
                 .opacity(isEnabled ? 1.0 : 0.4)
+                .applyDatePickerTint(style.datePickerTintColor)
             }
-            
-            // Toggle on the right
+
             Toggle("", isOn: Binding(
                 get: { isEnabled },
                 set: { onToggle($0) }
             ))
             .labelsHidden()
+            .applyToggleTint(style.toggleTintColor)
         }
         .padding(.vertical, 4)
     }

@@ -201,6 +201,35 @@ public struct PreferenceCenterItem: Codable, Identifiable, Sendable {
     }
 }
 
+/// A single user preference with its config and current state.
+/// Returned by `CopyLab.getPreferences()` and updated via `CopyLab.setPreference(_:enabled:time:)`.
+public struct UserPreference: Codable, Identifiable, Sendable {
+    public let id: String
+    public let title: String
+    public let description: String
+    public let enabledByDefault: Bool
+    public let parameters: PreferenceParameters?
+    /// The user's current enabled state for this preference
+    public var enabled: Bool
+    /// The user's current time for this preference (only applicable when parameters.schedule exists)
+    public var time: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id, title, description, parameters, enabled, time
+        case enabledByDefault = "enabled_by_default"
+    }
+
+    public init(id: String, title: String, description: String, enabledByDefault: Bool, parameters: PreferenceParameters?, enabled: Bool, time: String?) {
+        self.id = id
+        self.title = title
+        self.description = description
+        self.enabledByDefault = enabledByDefault
+        self.parameters = parameters
+        self.enabled = enabled
+        self.time = time
+    }
+}
+
 /// The complete preference center configuration returned from the API
 public struct PreferenceCenterConfig: Codable, Sendable {
     public let version: String
