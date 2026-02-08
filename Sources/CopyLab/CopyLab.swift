@@ -515,16 +515,11 @@ public enum CopyLab {
     /// Sets user attributes that are used as fallback variables when generating
     /// notification content. Attributes are merged with any existing values.
     ///
-    /// - Parameters:
-    ///   - attributes: A dictionary of string key-value pairs (e.g., `["user_name": "Nick"]`)
-    ///   - completion: Optional callback with the result
-    public static func setUserAttributes(
-        _ attributes: [String: String],
-        completion: ((Result<Void, Error>) -> Void)? = nil
-    ) {
+    /// - Parameter attributes: A dictionary of string key-value pairs (e.g., `["user_name": "Nick"]`)
+    public static func setUserAttributes(_ attributes: [String: String]) {
         guard identifiedUserId != nil else {
             print("⏳ CopyLab: Queueing setUserAttributes until user is identified")
-            pendingActions.append { setUserAttributes(attributes, completion: completion) }
+            pendingActions.append { setUserAttributes(attributes) }
             return
         }
 
@@ -537,10 +532,8 @@ public enum CopyLab {
             switch result {
             case .success:
                 print("📋 CopyLab: User attributes updated")
-                completion?(.success(()))
             case .failure(let error):
                 print("⚠️ CopyLab: Error setting user attributes: \(error.localizedDescription)")
-                completion?(.failure(error))
             }
         }
     }
