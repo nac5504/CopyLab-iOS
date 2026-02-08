@@ -810,15 +810,6 @@ public enum CopyLab {
         }
     }
 
-    /// Async version of setUserAttributes
-    @available(iOS 13.0, macOS 10.15, *)
-    public static func setUserAttributes(_ attributes: [String: String]) async throws {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            setUserAttributes(attributes) { result in
-                continuation.resume(with: result)
-            }
-        }
-    }
 }
 
 // MARK: - Error Types
