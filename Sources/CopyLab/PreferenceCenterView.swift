@@ -317,6 +317,7 @@ public struct PreferenceCenterView: View {
                     }
 
                     // Developer Tools Section
+                    #if DEBUG
                     Section(header: styledHeader("Developer Tools")) {
                         Button(action: {
                             viewModel.sendTestNotification()
@@ -332,6 +333,7 @@ public struct PreferenceCenterView: View {
                         }
                         .listRowBackground(style.sectionBackgroundColor)
                     }
+                    #endif
                 }
                 .listStyle(InsetGroupedListStyle())
                 .applyListBackground(style.backgroundColor)
