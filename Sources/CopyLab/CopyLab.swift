@@ -627,10 +627,13 @@ public enum CopyLab {
         if !schedules.isEmpty {
             body["schedules"] = schedules
         }
-        
+
         if !scheduleTimes.isEmpty {
             body["schedule_times"] = scheduleTimes
-            // Include timezone for server-side scheduling
+        }
+
+        // Always include timezone when any schedule-related field changes
+        if !schedules.isEmpty || !scheduleTimes.isEmpty {
             body["timezone"] = TimeZone.current.identifier
         }
         
@@ -814,8 +817,10 @@ public enum CopyLab {
 
         if let time = time {
             body["schedule_times"] = [preferenceId: time]
-            body["timezone"] = TimeZone.current.identifier
         }
+
+        // Always include timezone — the preference may gate a scheduled notification
+        body["timezone"] = TimeZone.current.identifier
 
         makeAPIRequest(endpoint: "update_user_preferences", body: body) { result in
             switch result {

@@ -751,7 +751,14 @@ class PreferenceCenterViewModel: ObservableObject {
     func updateScheduleTime(_ scheduleId: String, time: Date) {
         scheduleTimes[scheduleId] = time
         let timeStr = formatTime(time)
-        CopyLab.updateNotificationPreferences(scheduleTimes: [scheduleId: timeStr]) { result in
+        // Send both the time AND the enabled state — if the schedule is enabled by
+        // default the server may never have received the toggle, so we always confirm
+        // it is enabled when the user is actively setting a time for it.
+        let isEnabled = scheduleStates[scheduleId] ?? true
+        CopyLab.updateNotificationPreferences(
+            schedules: [scheduleId: isEnabled],
+            scheduleTimes: [scheduleId: timeStr]
+        ) { result in
             if case .failure(let error) = result {
                 print("⚠️ CopyLab: Error updating schedule time: \(error.localizedDescription)")
             }
