@@ -347,18 +347,23 @@ public enum CopyLab {
     
     /// Subscribes the current user to a CopyLab topic.
     ///
-    /// - Parameter topicId: The topic ID (e.g., "chat_community_chat_alerts")
-    public static func subscribeToTopic(_ topicId: String) {
+    /// - Parameters:
+    ///   - topicId: The topic ID (e.g., "chat_community_chat_alerts")
+    ///   - topicName: Optional display name for the topic (e.g., "Community Chat Alerts")
+    public static func subscribeToTopic(_ topicId: String, topicName: String? = nil) {
         guard identifiedUserId != nil else {
             print("⏳ CopyLab: Queueing subscription to \(topicId) until user is identified")
-            pendingActions.append { subscribeToTopic(topicId) }
+            pendingActions.append { subscribeToTopic(topicId, topicName: topicName) }
             return
         }
-        
-        let body: [String: Any] = [
+
+        var body: [String: Any] = [
             "topic_id": topicId,
             "user_id": currentUserId
         ]
+        if let topicName = topicName {
+            body["topic_name"] = topicName
+        }
         
         makeAPIRequest(endpoint: "subscribe_to_topic", body: body) { result in
             switch result {
