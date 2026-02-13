@@ -17,7 +17,7 @@ public enum CopyLab {
     private static let prefsCacheKey = "copylab_prefs_cache"
     
     /// SDK Version
-    public static let sdkVersion = "2.8.6"
+    public static let sdkVersion = "2.8.9"
     
     private static var pendingActions: [() -> Void] = []
     
