@@ -17,7 +17,7 @@ public enum CopyLab {
     private static let prefsCacheKey = "copylab_prefs_cache"
     
     /// SDK Version
-    public static let sdkVersion = "2.8.5"
+    public static let sdkVersion = "2.8.6"
     
     private static var pendingActions: [() -> Void] = []
     
@@ -284,6 +284,9 @@ public enum CopyLab {
         // Add CopyLab metadata
         if let notificationId = userInfo["notification_id"] as? String {
             body["notification_id"] = notificationId
+        }
+        if let userNotificationId = userInfo["user_notification_id"] as? String {
+            body["user_notification_id"] = userNotificationId
         }
         if let placementId = userInfo["copylab_placement_id"] as? String {
             body["placement_id"] = placementId

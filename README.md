@@ -2,7 +2,7 @@
 
 The CopyLab iOS SDK handles push notification management, analytics tracking, user preferences, and provides a drop-in preference center UI for your app.
 
-**Current version: 2.8.3** | iOS 13+ | Swift 5.5+ | Swift Package Manager
+**Current version: 2.8.6** | iOS 13+ | Swift 5.5+ | Swift Package Manager
 
 ## Installation
 
@@ -13,7 +13,7 @@ The CopyLab iOS SDK handles push notification management, analytics tracking, us
    ```
    https://github.com/nac5504/CopyLab-iOS
    ```
-3. Set the dependency rule to **Up to Next Major Version** starting from `2.8.3`.
+3. Set the dependency rule to **Up to Next Major Version** starting from `2.8.6`.
 4. Click **Add Package**.
 
 ## Quick Start
