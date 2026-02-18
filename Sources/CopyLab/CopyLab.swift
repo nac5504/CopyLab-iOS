@@ -1,5 +1,6 @@
 import Foundation
 import UserNotifications
+import UIKit
 
 /// CopyLab SDK for iOS
 /// Handles interaction with the CopyLab notification system via secure API.
@@ -17,9 +18,55 @@ public enum CopyLab {
     private static let prefsCacheKey = "copylab_prefs_cache"
     
     /// SDK Version
-    public static let sdkVersion = "2.8.9"
-    
+    public static let sdkVersion = "2.9.0"
+
     private static var pendingActions: [() -> Void] = []
+
+    // MARK: - Metadata Collection Helpers
+
+    /// Get app version from Bundle
+    private static func getAppVersion() -> String {
+        return Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown"
+    }
+
+    /// Get app build number from Bundle
+    private static func getAppBuild() -> String {
+        return Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "unknown"
+    }
+
+    /// Get device timezone identifier
+    private static func getTimezone() -> String {
+        return TimeZone.current.identifier
+    }
+
+    /// Get device model identifier
+    private static func getDeviceModel() -> String {
+        var systemInfo = utsname()
+        uname(&systemInfo)
+        let machineMirror = Mirror(reflecting: systemInfo.machine)
+        let identifier = machineMirror.children.reduce("") { identifier, element in
+            guard let value = element.value as? Int8, value != 0 else { return identifier }
+            return identifier + String(UnicodeScalar(UInt8(value)))
+        }
+        return identifier
+    }
+
+    /// Get iOS version
+    private static func getOSVersion() -> String {
+        return UIDevice.current.systemVersion
+    }
+
+    /// Get human-readable device name
+    private static func getDeviceName() -> String {
+        return UIDevice.current.model
+    }
+
+    /// Get current timestamp in ISO 8601 format
+    private static func getCurrentTimestamp() -> String {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter.string(from: Date())
+    }
     
     // MARK: - Public Configuration
     
@@ -456,24 +503,38 @@ public enum CopyLab {
         }
     }
     
-    /// Logs when the app is opened.
-    /// Used for calculating influenced attribution.
+    /// Logs when the app is opened with rich metadata.
+    /// Used for calculating influenced attribution and tracking app usage.
+    /// Captures app version, SDK version, device info, timezone, and timestamp.
     public static func logAppOpen() {
         guard identifiedUserId != nil else {
             print("⏳ CopyLab: Queueing app open log until user is identified")
             pendingActions.append { logAppOpen() }
             return
         }
-        
+
+        // Collect metadata
+        let metadata: [String: Any] = [
+            "app_version": getAppVersion(),
+            "sdk_version": sdkVersion,
+            "client_timestamp": getCurrentTimestamp(),
+            "timezone": getTimezone(),
+            "device_model": getDeviceModel(),
+            "os_version": getOSVersion(),
+            "device_name": getDeviceName(),
+            "app_build": getAppBuild()
+        ]
+
         let body: [String: Any] = [
             "user_id": currentUserId,
-            "platform": "ios"
+            "platform": "ios",
+            "metadata": metadata
         ]
-        
+
         makeAPIRequest(endpoint: "log_app_open", body: body) { result in
             switch result {
             case .success:
-                print("📱 CopyLab: Logged app open")
+                print("📱 CopyLab: Logged app open with metadata")
             case .failure(let error):
                 print("⚠️ CopyLab: Error logging app open: \(error.localizedDescription)")
             }
