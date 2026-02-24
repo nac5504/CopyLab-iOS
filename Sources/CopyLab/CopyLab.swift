@@ -393,8 +393,38 @@ public enum CopyLab {
         }
     }
     
+    // MARK: - SMS
+
+    /// Registers a phone number for the current user to enable SMS delivery.
+    ///
+    /// The number must be in E.164 format, e.g. `"+14155552671"`.
+    /// Registrations are queued if no user has been identified yet.
+    ///
+    /// - Parameter phoneNumber: The phone number in E.164 format.
+    public static func registerPhoneNumber(_ phoneNumber: String) {
+        guard identifiedUserId != nil else {
+            print("⏳ CopyLab: Queueing phone number registration until user is identified")
+            pendingActions.append { registerPhoneNumber(phoneNumber) }
+            return
+        }
+
+        let body: [String: Any] = [
+            "user_id": currentUserId,
+            "phone_number": phoneNumber
+        ]
+
+        makeAPIRequest(endpoint: "register_phone_number", body: body) { result in
+            switch result {
+            case .success:
+                print("📱 CopyLab: Phone number registered successfully")
+            case .failure(let error):
+                print("⚠️ CopyLab: Error registering phone number: \(error.localizedDescription)")
+            }
+        }
+    }
+
     // MARK: - Topic Subscriptions
-    
+
     /// Subscribes the current user to a CopyLab topic.
     ///
     /// - Parameters:
@@ -952,6 +982,29 @@ public enum CopyLab {
         }
     }
     
+    /// Sends a test SMS to the current user's registered phone number.
+    /// The backend resolves the user's phone number and user_attributes from Firestore,
+    /// so the SMS uses real data exactly as a production send would.
+    public static func sendTestSms(
+        placementId: String = "sms_test",
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        let body: [String: Any] = [
+            "placement_id": placementId,
+            "user_ids": [currentUserId]
+        ]
+        makeAPIRequest(endpoint: "send_sms_to_users", body: body) { result in
+            switch result {
+            case .success:
+                print("✅ CopyLab: Test SMS sent to user \(currentUserId)")
+                completion(.success(()))
+            case .failure(let error):
+                print("❌ CopyLab: Failed to send test SMS: \(error.localizedDescription)")
+                completion(.failure(error))
+            }
+        }
+    }
+
     // MARK: - Async/Await Wrappers
     
     /// Async version of getNotificationPreferences

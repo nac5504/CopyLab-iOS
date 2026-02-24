@@ -209,6 +209,7 @@ private extension View {
 public struct PreferenceCenterView: View {
     @StateObject private var viewModel = PreferenceCenterViewModel()
     @State private var showDisableAlert = false
+    @State private var showDisableSmsAlert = false
 
     private let style: PreferenceCenterStyle
 
@@ -253,6 +254,29 @@ public struct PreferenceCenterView: View {
                                 showDisableAlert = true
                             },
                             onOpenSettings: viewModel.openSystemSettings
+                        )
+                        .listRowBackground(style.sectionBackgroundColor)
+                    }
+
+                    // SMS Card
+                    Section {
+                        SmsCard(
+                            smsEnabled: $viewModel.smsEnabled,
+                            selectedCountry: $viewModel.selectedCountry,
+                            phoneDigits: $viewModel.phoneDigits,
+                            isSaving: $viewModel.isSavingPhone,
+                            savedNumber: viewModel.savedPhoneE164,
+                            style: style,
+                            onToggle: { enabled in
+                                if !enabled {
+                                    showDisableSmsAlert = true
+                                } else {
+                                    viewModel.toggleSms(true)
+                                }
+                            },
+                            onSave: {
+                                viewModel.savePhoneNumber()
+                            }
                         )
                         .listRowBackground(style.sectionBackgroundColor)
                     }
@@ -332,6 +356,26 @@ public struct PreferenceCenterView: View {
                             }
                         }
                         .listRowBackground(style.sectionBackgroundColor)
+
+                        Button(action: {
+                            viewModel.sendTestSms()
+                        }) {
+                            HStack {
+                                Text("Send Test SMS")
+                                    .foregroundColor(style.primaryTextColor)
+                                    .font(style.primaryTextFont ?? .body)
+                                Spacer()
+                                if viewModel.isSendingTestSms {
+                                    ProgressView()
+                                        .scaleEffect(0.8)
+                                } else {
+                                    Image(systemName: "message")
+                                        .foregroundColor(style.accentColor)
+                                }
+                            }
+                        }
+                        .disabled(viewModel.savedPhoneE164 == nil || viewModel.isSendingTestSms)
+                        .listRowBackground(style.sectionBackgroundColor)
                     }
                     #endif
                 }
@@ -349,6 +393,14 @@ public struct PreferenceCenterView: View {
                 },
                 secondaryButton: .cancel(Text(CopyLab.disableNotificationsAlertConfig.cancelTitle))
             )
+        }
+        .alert("Disable SMS?", isPresented: $showDisableSmsAlert) {
+            Button("Disable", role: .destructive) {
+                viewModel.toggleSms(false)
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("You will no longer receive SMS notifications.")
         }
         .onAppear {
             viewModel.loadData()
@@ -436,6 +488,200 @@ private struct SystemPermissionCard: View {
         case "provisional": return "Quiet notifications enabled"
         case "notDetermined": return "Permission not requested"
         default: return "Unknown status"
+        }
+    }
+}
+
+// MARK: - SMS Card
+
+@available(iOS 14.0, *)
+private struct SmsCard: View {
+    @Binding var smsEnabled: Bool
+    @Binding var selectedCountry: CountryCode
+    @Binding var phoneDigits: String
+    @Binding var isSaving: Bool
+    let savedNumber: String?
+    let style: PreferenceCenterStyle
+    let onToggle: (Bool) -> Void
+    let onSave: () -> Void
+
+    @State private var showCountryPicker = false
+
+    private var e164Number: String {
+        "\(selectedCountry.dialCode)\(phoneDigits)"
+    }
+
+    private var isPhoneComplete: Bool {
+        phoneDigits.count == selectedCountry.maxDigits
+    }
+
+    private var isAlreadySaved: Bool {
+        guard let saved = savedNumber else { return false }
+        return saved == e164Number && isPhoneComplete
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Header row — mirrors SystemPermissionCard layout
+            HStack {
+                Image(systemName: smsEnabled ? "message.fill" : "message")
+                    .foregroundColor(smsEnabled
+                        ? (style.permissionAuthorizedColor ?? .green)
+                        : (style.permissionUnknownColor ?? .gray))
+                    .font(.title2)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("SMS Notifications")
+                        .font(style.permissionTitleFont ?? .headline)
+                        .foregroundColor(style.primaryTextColor)
+                    Text(smsEnabled ? "SMS enabled" : "SMS disabled")
+                        .font(style.secondaryTextFont ?? .caption)
+                        .foregroundColor(style.secondaryTextColor ?? .secondary)
+                }
+
+                Spacer()
+
+                Toggle("", isOn: Binding(
+                    get: { smsEnabled },
+                    set: { onToggle($0) }
+                ))
+                .labelsHidden()
+                .applyToggleTint(style.toggleTintColor)
+            }
+
+            // Phone number input — shown only when SMS is enabled
+            if smsEnabled {
+                VStack(alignment: .leading, spacing: 8) {
+                    // Dial-code picker + formatted number field
+                    HStack(spacing: 0) {
+                        Button(action: { showCountryPicker = true }) {
+                            HStack(spacing: 4) {
+                                Text(selectedCountry.flag)
+                                    .font(.body)
+                                Text(selectedCountry.dialCode)
+                                    .font(style.primaryTextFont ?? .body)
+                                    .foregroundColor(style.primaryTextColor)
+                                Image(systemName: "chevron.down")
+                                    .font(.caption2)
+                                    .foregroundColor(style.secondaryTextColor ?? .secondary)
+                            }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 8)
+                        }
+
+                        Divider().frame(height: 24)
+
+                        TextField(
+                            selectedCountry.formatPattern.replacingOccurrences(of: "#", with: "0"),
+                            text: Binding(
+                                get: { selectedCountry.format(phoneDigits) },
+                                set: { newVal in
+                                    let digits = newVal.filter { $0.isNumber }
+                                    phoneDigits = String(digits.prefix(selectedCountry.maxDigits))
+                                }
+                            )
+                        )
+                        .keyboardType(.phonePad)
+                        .font(style.primaryTextFont ?? .body)
+                        .foregroundColor(style.primaryTextColor)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 8)
+                    }
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(
+                                (style.secondaryTextColor ?? .secondary).opacity(0.3),
+                                lineWidth: 1
+                            )
+                    )
+
+                    // Saved indicator + save button row
+                    HStack {
+                        if isAlreadySaved {
+                            HStack(spacing: 4) {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .font(.caption)
+                                Text("Saved")
+                                    .font(style.secondaryTextFont ?? .caption)
+                            }
+                            .foregroundColor(style.permissionAuthorizedColor ?? .green)
+                        }
+                        Spacer()
+                        Button(action: onSave) {
+                            if isSaving {
+                                ProgressView().scaleEffect(0.8)
+                            } else {
+                                Text("Save Number")
+                                    .font(style.primaryTextFont ?? .body)
+                                    .foregroundColor(isPhoneComplete
+                                        ? (style.accentColor ?? .blue)
+                                        : (style.secondaryTextColor ?? .secondary))
+                            }
+                        }
+                        .disabled(!isPhoneComplete || isSaving || isAlreadySaved)
+                    }
+                }
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+        .padding(.vertical, 4)
+        .animation(.easeInOut(duration: 0.2), value: smsEnabled)
+        .sheet(isPresented: $showCountryPicker) {
+            CountryPickerSheet(selectedCountry: $selectedCountry)
+        }
+    }
+}
+
+// MARK: - Country Picker Sheet
+
+@available(iOS 14.0, *)
+private struct CountryPickerSheet: View {
+    @Binding var selectedCountry: CountryCode
+    @Environment(\.presentationMode) var presentationMode
+    @State private var searchText = ""
+
+    private var filtered: [CountryCode] {
+        guard !searchText.isEmpty else { return CountryCode.all }
+        return CountryCode.all.filter {
+            $0.name.localizedCaseInsensitiveContains(searchText) ||
+            $0.dialCode.contains(searchText)
+        }
+    }
+
+    var body: some View {
+        NavigationView {
+            countryList
+                .navigationTitle("Select Country")
+                .navigationBarItems(trailing: Button("Cancel") {
+                    presentationMode.wrappedValue.dismiss()
+                })
+        }
+    }
+
+    @ViewBuilder
+    private var countryList: some View {
+        if #available(iOS 15.0, *) {
+            List(filtered) { country in countryRow(country) }
+                .searchable(text: $searchText, prompt: "Search country or dial code")
+        } else {
+            List(filtered) { country in countryRow(country) }
+        }
+    }
+
+    private func countryRow(_ country: CountryCode) -> some View {
+        Button(action: {
+            selectedCountry = country
+            presentationMode.wrappedValue.dismiss()
+        }) {
+            HStack {
+                Text(country.flag).font(.body)
+                Text(country.name).foregroundColor(.primary)
+                Spacer()
+                Text(country.dialCode).foregroundColor(.secondary)
+                if country == selectedCountry {
+                    Image(systemName: "checkmark").foregroundColor(.blue)
+                }
+            }
         }
     }
 }
@@ -600,6 +846,14 @@ class PreferenceCenterViewModel: ObservableObject {
     @Published var preferences: [PreferenceCenterItem] = [] // NEW
     @Published var topics: [PreferenceCenterItem] = []
     @Published var schedules: [PreferenceCenterItem] = []
+
+    // SMS state
+    @Published var smsEnabled = false
+    @Published var selectedCountry: CountryCode = .defaultCountry
+    @Published var phoneDigits = ""
+    @Published var isSavingPhone = false
+    @Published var isSendingTestSms = false
+    @Published var savedPhoneE164: String? = nil
     
     /// Returns topics that should be visible based on type and subscription status
     var visibleTopics: [PreferenceCenterItem] {
@@ -631,6 +885,16 @@ class PreferenceCenterViewModel: ObservableObject {
             self.updateViewModelWithPreferences(cachedPrefs)
         } else {
             print("⚠️ CopyLab: No cached preferences - preferences should have been fetched on identify()")
+        }
+
+        // Load SMS state from UserDefaults
+        smsEnabled = UserDefaults.standard.bool(forKey: "copylab_sms_enabled")
+        if let savedE164 = UserDefaults.standard.string(forKey: "copylab_sms_phone_e164") {
+            savedPhoneE164 = savedE164
+            if let (country, digits) = parseE164(savedE164) {
+                selectedCountry = country
+                phoneDigits = digits
+            }
         }
 
         // Fetch current OS permission status
@@ -802,6 +1066,43 @@ class PreferenceCenterViewModel: ObservableObject {
         }
     }
     
+    func toggleSms(_ enabled: Bool) {
+        smsEnabled = enabled
+        UserDefaults.standard.set(enabled, forKey: "copylab_sms_enabled")
+    }
+
+    func savePhoneNumber() {
+        let e164 = selectedCountry.dialCode + phoneDigits
+        guard phoneDigits.count == selectedCountry.maxDigits else { return }
+        isSavingPhone = true
+        // Optimistic update — persist locally then fire API in background
+        UserDefaults.standard.set(e164, forKey: "copylab_sms_phone_e164")
+        savedPhoneE164 = e164
+        isSavingPhone = false
+        CopyLab.registerPhoneNumber(e164)
+    }
+
+    func sendTestSms() {
+        isSendingTestSms = true
+        CopyLab.sendTestSms { [weak self] result in
+            DispatchQueue.main.async {
+                self?.isSendingTestSms = false
+                if case .failure(let error) = result {
+                    print("⚠️ CopyLab: Test SMS failed: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+
+    private func parseE164(_ e164: String) -> (CountryCode, String)? {
+        let matches = CountryCode.all.filter { e164.hasPrefix($0.dialCode) }
+        guard let country = matches.max(by: { $0.dialCode.count < $1.dialCode.count }) else {
+            return nil
+        }
+        let digits = String(e164.dropFirst(country.dialCode.count))
+        return (country, digits)
+    }
+
     private func mapAuthorizationStatus(_ status: UNAuthorizationStatus) -> String {
         switch status {
         case .authorized: return "authorized"
