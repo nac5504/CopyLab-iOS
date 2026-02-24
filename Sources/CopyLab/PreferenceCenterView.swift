@@ -394,13 +394,15 @@ public struct PreferenceCenterView: View {
                 secondaryButton: .cancel(Text(CopyLab.disableNotificationsAlertConfig.cancelTitle))
             )
         }
-        .alert("Disable SMS?", isPresented: $showDisableSmsAlert) {
-            Button("Disable", role: .destructive) {
-                viewModel.toggleSms(false)
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("You will no longer receive SMS notifications.")
+        .alert(isPresented: $showDisableSmsAlert) {
+            Alert(
+                title: Text("Disable SMS?"),
+                message: Text("You will no longer receive SMS notifications."),
+                primaryButton: .destructive(Text("Disable")) {
+                    viewModel.toggleSms(false)
+                },
+                secondaryButton: .cancel(Text("Cancel"))
+            )
         }
         .onAppear {
             viewModel.loadData()
