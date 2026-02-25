@@ -210,6 +210,7 @@ public struct PreferenceCenterView: View {
     @StateObject private var viewModel = PreferenceCenterViewModel()
     @State private var showDisableAlert = false
     @State private var showDisableSmsAlert = false
+    @State private var showRedirectToSettingsAlert = false
 
     private let style: PreferenceCenterStyle
 
@@ -218,7 +219,11 @@ public struct PreferenceCenterView: View {
     public init(style: PreferenceCenterStyle? = nil) {
         self.style = style ?? CopyLab.preferenceCenterStyle
     }
-    
+
+    private var isPushEnabled: Bool {
+        viewModel.pushChannelEnabled
+    }
+
     public var body: some View {
         Group {
             if viewModel.isLoading {
@@ -244,28 +249,32 @@ public struct PreferenceCenterView: View {
                 .padding()
             } else {
                 List {
-                    // System Permission Card
-                    Section {
-                        SystemPermissionCard(
+                    // Alerts Section — Push + SMS combined
+                    Section(header: styledHeader("Alerts")) {
+                        PushAlertRow(
                             status: viewModel.osPermissionStatus,
+                            pushChannelEnabled: viewModel.pushChannelEnabled,
                             style: style,
-                            onRequestPermissions: viewModel.requestSystemPermissions,
-                            onDisablePermissions: {
-                                showDisableAlert = true
+                            onToggleOn: {
+                                // Enable channel preference, then handle OS permission if needed
+                                if viewModel.osPermissionStatus == "notDetermined" {
+                                    viewModel.requestSystemPermissions()
+                                } else if viewModel.osPermissionStatus == "denied" {
+                                    showRedirectToSettingsAlert = true
+                                } else {
+                                    viewModel.togglePushChannel(true)
+                                }
                             },
-                            onOpenSettings: viewModel.openSystemSettings
+                            onDisable: { showDisableAlert = true }
                         )
                         .listRowBackground(style.sectionBackgroundColor)
-                    }
 
-                    // SMS Card
-                    Section {
-                        SmsCard(
-                            smsEnabled: $viewModel.smsEnabled,
-                            selectedCountry: $viewModel.selectedCountry,
-                            phoneDigits: $viewModel.phoneDigits,
-                            isSaving: $viewModel.isSavingPhone,
-                            savedNumber: viewModel.savedPhoneE164,
+                        let formattedPhone: String? = viewModel.smsEnabled && !viewModel.phoneDigits.isEmpty
+                            ? viewModel.selectedCountry.format(viewModel.phoneDigits)
+                            : nil
+                        SmsAlertRow(
+                            smsEnabled: viewModel.smsEnabled,
+                            formattedPhone: formattedPhone,
                             style: style,
                             onToggle: { enabled in
                                 if !enabled {
@@ -273,12 +282,21 @@ public struct PreferenceCenterView: View {
                                 } else {
                                     viewModel.toggleSms(true)
                                 }
-                            },
-                            onSave: {
-                                viewModel.savePhoneNumber()
                             }
                         )
                         .listRowBackground(style.sectionBackgroundColor)
+
+                        if viewModel.smsEnabled {
+                            PhoneInputRow(
+                                selectedCountry: $viewModel.selectedCountry,
+                                phoneDigits: $viewModel.phoneDigits,
+                                isSaving: $viewModel.isSavingPhone,
+                                savedNumber: viewModel.savedPhoneE164,
+                                style: style,
+                                onSave: { viewModel.savePhoneNumber() }
+                            )
+                            .listRowBackground(style.sectionBackgroundColor)
+                        }
                     }
 
                     // Preferences Section
@@ -288,6 +306,7 @@ public struct PreferenceCenterView: View {
                                 PreferenceToggleRow(
                                     preference: preference,
                                     isEnabled: viewModel.isPreferenceEnabled(preference.id),
+                                    isChannelEnabled: isPushEnabled,
                                     style: style,
                                     selectedTime: viewModel.getScheduleTime(preference.id),
                                     onToggle: { enabled in
@@ -309,6 +328,7 @@ public struct PreferenceCenterView: View {
                                 TopicToggleRow(
                                     topic: topic,
                                     isSubscribed: viewModel.isSubscribedToTopic(topic.id),
+                                    isChannelEnabled: isPushEnabled,
                                     style: style,
                                     onToggle: { enabled in
                                         viewModel.toggleTopic(topic.id, enabled: enabled)
@@ -326,6 +346,7 @@ public struct PreferenceCenterView: View {
                                 ScheduleToggleRow(
                                     schedule: schedule,
                                     isEnabled: viewModel.isScheduleEnabled(schedule.id),
+                                    isChannelEnabled: isPushEnabled,
                                     style: style,
                                     selectedTime: viewModel.getScheduleTime(schedule.id),
                                     onToggle: { enabled in
@@ -389,7 +410,7 @@ public struct PreferenceCenterView: View {
                 title: Text(CopyLab.disableNotificationsAlertConfig.title),
                 message: Text(CopyLab.disableNotificationsAlertConfig.message),
                 primaryButton: .destructive(Text(CopyLab.disableNotificationsAlertConfig.confirmTitle)) {
-                    viewModel.openSystemSettings()
+                    viewModel.togglePushChannel(false)
                 },
                 secondaryButton: .cancel(Text(CopyLab.disableNotificationsAlertConfig.cancelTitle))
             )
@@ -404,6 +425,16 @@ public struct PreferenceCenterView: View {
                 secondaryButton: .cancel(Text("Cancel"))
             )
         }
+        .alert(isPresented: $showRedirectToSettingsAlert) {
+            Alert(
+                title: Text("Enable Push Notifications"),
+                message: Text("You'll be taken to Settings to enable push notifications."),
+                primaryButton: .default(Text("Open Settings")) {
+                    viewModel.openSystemSettings()
+                },
+                secondaryButton: .cancel()
+            )
+        }
         .onAppear {
             viewModel.loadData()
         }
@@ -416,106 +447,116 @@ public struct PreferenceCenterView: View {
     }
 }
 
-// MARK: - System Permission Card
+// MARK: - Push Alert Row
 
 @available(iOS 14.0, *)
-private struct SystemPermissionCard: View {
+private struct PushAlertRow: View {
     let status: String
+    let pushChannelEnabled: Bool
     let style: PreferenceCenterStyle
-    let onRequestPermissions: () -> Void
-    let onDisablePermissions: () -> Void
-    let onOpenSettings: () -> Void
+    let onToggleOn: () -> Void   // called when user turns toggle ON
+    let onDisable: () -> Void    // called when user turns toggle OFF (show confirm)
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Image(systemName: statusIcon)
-                    .foregroundColor(statusColor)
-                    .font(.title2)
+        HStack {
+            Image(systemName: pushChannelEnabled ? "bell.fill" : "bell")
+                .foregroundColor(pushChannelEnabled
+                    ? (style.permissionAuthorizedColor ?? .green)
+                    : (style.permissionUnknownColor ?? .gray))
+                .font(.title2)
+                .frame(width: 28)
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Push Notifications")
-                        .font(style.permissionTitleFont ?? .headline)
-                        .foregroundColor(style.primaryTextColor)
-                    Text(statusText)
-                        .font(style.secondaryTextFont ?? .caption)
-                        .foregroundColor(style.secondaryTextColor ?? .secondary)
-                }
-
-                Spacer()
-
-                if status == "authorized" || status == "provisional" {
-                    Button("Disable") {
-                        onDisablePermissions()
-                    }
-                    .foregroundColor(style.destructiveColor ?? .red)
-                } else if status == "notDetermined" {
-                    Button("Enable") {
-                        onRequestPermissions()
-                    }
-                    .foregroundColor(style.accentColor)
-                } else if status == "denied" {
-                    Button("Enable in Settings") {
-                        onOpenSettings()
-                    }
-                    .foregroundColor(style.accentColor)
-                }
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Push Notifications")
+                    .font(style.permissionTitleFont ?? .headline)
+                    .foregroundColor(style.primaryTextColor)
+                Text(statusSubtitle)
+                    .font(style.secondaryTextFont ?? .caption)
+                    .foregroundColor(style.secondaryTextColor ?? .secondary)
             }
+
+            Spacer()
+
+            Toggle("", isOn: Binding(
+                get: { pushChannelEnabled },
+                set: { newVal in
+                    if newVal { onToggleOn() } else { onDisable() }
+                }
+            ))
+            .labelsHidden()
+            .applyToggleTint(style.toggleTintColor)
         }
         .padding(.vertical, 4)
     }
 
-    private var statusIcon: String {
+    private var statusSubtitle: String {
+        guard pushChannelEnabled else { return "Push notifications disabled" }
         switch status {
-        case "authorized": return "bell.badge.fill"
-        case "denied": return "bell.slash.fill"
-        case "provisional": return "bell.fill"
-        default: return "bell"
-        }
-    }
-
-    private var statusColor: Color {
-        switch status {
-        case "authorized": return style.permissionAuthorizedColor ?? .green
-        case "denied": return style.permissionDeniedColor ?? .red
-        case "provisional": return style.permissionProvisionalColor ?? .orange
-        default: return style.permissionUnknownColor ?? .gray
-        }
-    }
-
-    private var statusText: String {
-        switch status {
-        case "authorized": return "Notifications are enabled"
-        case "denied": return "Notifications are disabled"
-        case "provisional": return "Quiet notifications enabled"
-        case "notDetermined": return "Permission not requested"
-        default: return "Unknown status"
+        case "authorized", "provisional": return "Get notified of community activity"
+        case "denied": return "Enable in Settings to receive notifications"
+        default: return "Tap to enable notifications"
         }
     }
 }
 
-// MARK: - SMS Card
+// MARK: - SMS Alert Row
 
 @available(iOS 14.0, *)
-private struct SmsCard: View {
-    @Binding var smsEnabled: Bool
+private struct SmsAlertRow: View {
+    let smsEnabled: Bool
+    let formattedPhone: String?
+    let style: PreferenceCenterStyle
+    let onToggle: (Bool) -> Void
+
+    var body: some View {
+        HStack {
+            Image(systemName: smsEnabled ? "message.fill" : "message")
+                .foregroundColor(smsEnabled
+                    ? (style.permissionAuthorizedColor ?? .green)
+                    : (style.permissionUnknownColor ?? .gray))
+                .font(.title2)
+                .frame(width: 28)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("SMS Notifications")
+                    .font(style.permissionTitleFont ?? .headline)
+                    .foregroundColor(style.primaryTextColor)
+                Text(smsEnabled
+                    ? (formattedPhone.map { "Receive texts at \($0)" } ?? "SMS enabled")
+                    : "SMS disabled")
+                    .font(style.secondaryTextFont ?? .caption)
+                    .foregroundColor(style.secondaryTextColor ?? .secondary)
+            }
+
+            Spacer()
+
+            Toggle("", isOn: Binding(
+                get: { smsEnabled },
+                set: { onToggle($0) }
+            ))
+            .labelsHidden()
+            .applyToggleTint(style.toggleTintColor)
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+// MARK: - Phone Input Row
+
+@available(iOS 14.0, *)
+private struct PhoneInputRow: View {
     @Binding var selectedCountry: CountryCode
     @Binding var phoneDigits: String
     @Binding var isSaving: Bool
     let savedNumber: String?
     let style: PreferenceCenterStyle
-    let onToggle: (Bool) -> Void
     let onSave: () -> Void
 
     @State private var showCountryPicker = false
 
-    private var e164Number: String {
-        "\(selectedCountry.dialCode)\(phoneDigits)"
-    }
+    private var e164Number: String { "\(selectedCountry.dialCode)\(phoneDigits)" }
 
-    private var isPhoneComplete: Bool {
-        phoneDigits.count == selectedCountry.maxDigits
-    }
+    private var isPhoneComplete: Bool { phoneDigits.count == selectedCountry.maxDigits }
 
     private var isAlreadySaved: Bool {
         guard let saved = savedNumber else { return false }
@@ -523,111 +564,73 @@ private struct SmsCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Header row — mirrors SystemPermissionCard layout
-            HStack {
-                Image(systemName: smsEnabled ? "message.fill" : "message")
-                    .foregroundColor(smsEnabled
-                        ? (style.permissionAuthorizedColor ?? .green)
-                        : (style.permissionUnknownColor ?? .gray))
-                    .font(.title2)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("SMS Notifications")
-                        .font(style.permissionTitleFont ?? .headline)
-                        .foregroundColor(style.primaryTextColor)
-                    Text(smsEnabled ? "SMS enabled" : "SMS disabled")
-                        .font(style.secondaryTextFont ?? .caption)
-                        .foregroundColor(style.secondaryTextColor ?? .secondary)
+        VStack(alignment: .leading, spacing: 8) {
+            // Dial-code picker + formatted number field
+            HStack(spacing: 0) {
+                Button(action: { showCountryPicker = true }) {
+                    HStack(spacing: 4) {
+                        Text(selectedCountry.flag).font(.body)
+                        Text(selectedCountry.dialCode)
+                            .font(style.primaryTextFont ?? .body)
+                            .foregroundColor(style.primaryTextColor)
+                        Image(systemName: "chevron.down")
+                            .font(.caption2)
+                            .foregroundColor(style.secondaryTextColor ?? .secondary)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
                 }
 
-                Spacer()
+                Divider().frame(height: 24)
 
-                Toggle("", isOn: Binding(
-                    get: { smsEnabled },
-                    set: { onToggle($0) }
-                ))
-                .labelsHidden()
-                .applyToggleTint(style.toggleTintColor)
-            }
-
-            // Phone number input — shown only when SMS is enabled
-            if smsEnabled {
-                VStack(alignment: .leading, spacing: 8) {
-                    // Dial-code picker + formatted number field
-                    HStack(spacing: 0) {
-                        Button(action: { showCountryPicker = true }) {
-                            HStack(spacing: 4) {
-                                Text(selectedCountry.flag)
-                                    .font(.body)
-                                Text(selectedCountry.dialCode)
-                                    .font(style.primaryTextFont ?? .body)
-                                    .foregroundColor(style.primaryTextColor)
-                                Image(systemName: "chevron.down")
-                                    .font(.caption2)
-                                    .foregroundColor(style.secondaryTextColor ?? .secondary)
-                            }
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 8)
+                TextField(
+                    selectedCountry.formatPattern.replacingOccurrences(of: "#", with: "0"),
+                    text: Binding(
+                        get: { selectedCountry.format(phoneDigits) },
+                        set: { newVal in
+                            let digits = newVal.filter { $0.isNumber }
+                            phoneDigits = String(digits.prefix(selectedCountry.maxDigits))
                         }
-
-                        Divider().frame(height: 24)
-
-                        TextField(
-                            selectedCountry.formatPattern.replacingOccurrences(of: "#", with: "0"),
-                            text: Binding(
-                                get: { selectedCountry.format(phoneDigits) },
-                                set: { newVal in
-                                    let digits = newVal.filter { $0.isNumber }
-                                    phoneDigits = String(digits.prefix(selectedCountry.maxDigits))
-                                }
-                            )
-                        )
-                        .keyboardType(.phonePad)
-                        .font(style.primaryTextFont ?? .body)
-                        .foregroundColor(style.primaryTextColor)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 8)
-                    }
-                    .background(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(
-                                (style.secondaryTextColor ?? .secondary).opacity(0.3),
-                                lineWidth: 1
-                            )
                     )
+                )
+                .keyboardType(.phonePad)
+                .font(style.primaryTextFont ?? .body)
+                .foregroundColor(style.primaryTextColor)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+            }
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(
+                        (style.secondaryTextColor ?? .secondary).opacity(0.3),
+                        lineWidth: 1
+                    )
+            )
 
-                    // Saved indicator + save button row
-                    HStack {
-                        if isAlreadySaved {
-                            HStack(spacing: 4) {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .font(.caption)
-                                Text("Saved")
-                                    .font(style.secondaryTextFont ?? .caption)
-                            }
-                            .foregroundColor(style.permissionAuthorizedColor ?? .green)
-                        }
-                        Spacer()
-                        Button(action: onSave) {
-                            if isSaving {
-                                ProgressView().scaleEffect(0.8)
-                            } else {
-                                Text("Save Number")
-                                    .font(style.primaryTextFont ?? .body)
-                                    .foregroundColor(isPhoneComplete
-                                        ? (style.accentColor ?? .blue)
-                                        : (style.secondaryTextColor ?? .secondary))
-                            }
-                        }
-                        .disabled(!isPhoneComplete || isSaving || isAlreadySaved)
+            // Single right-aligned save/saved indicator
+            HStack {
+                Spacer()
+                if isSaving {
+                    ProgressView().scaleEffect(0.8)
+                } else if isAlreadySaved {
+                    HStack(spacing: 4) {
+                        Image(systemName: "checkmark.circle.fill").font(.caption)
+                        Text("Saved").font(style.secondaryTextFont ?? .caption)
                     }
+                    .foregroundColor(style.permissionAuthorizedColor ?? .green)
+                } else {
+                    Button(action: onSave) {
+                        Text("Save Number")
+                            .font(style.primaryTextFont ?? .body)
+                            .foregroundColor(isPhoneComplete
+                                ? (style.accentColor ?? .blue)
+                                : (style.secondaryTextColor ?? .secondary))
+                    }
+                    .disabled(!isPhoneComplete)
                 }
-                .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
         .padding(.vertical, 4)
-        .animation(.easeInOut(duration: 0.2), value: smsEnabled)
         .sheet(isPresented: $showCountryPicker) {
             CountryPickerSheet(selectedCountry: $selectedCountry)
         }
@@ -694,6 +697,7 @@ private struct CountryPickerSheet: View {
 private struct TopicToggleRow: View {
     let topic: PreferenceCenterItem
     let isSubscribed: Bool
+    let isChannelEnabled: Bool
     let style: PreferenceCenterStyle
     let onToggle: (Bool) -> Void
 
@@ -721,8 +725,10 @@ private struct TopicToggleRow: View {
             ))
             .labelsHidden()
             .applyToggleTint(style.toggleTintColor)
+            .disabled(!isChannelEnabled)
         }
         .padding(.vertical, 4)
+        .opacity(isChannelEnabled ? 1.0 : 0.4)
     }
 }
 
@@ -732,14 +738,16 @@ private struct TopicToggleRow: View {
 private struct PreferenceToggleRow: View {
     let preference: PreferenceCenterItem
     let isEnabled: Bool
+    let isChannelEnabled: Bool
     let style: PreferenceCenterStyle
     let selectedTime: Date
     let onToggle: (Bool) -> Void
     let onTimeChange: (Date) -> Void
 
-    init(preference: PreferenceCenterItem, isEnabled: Bool, style: PreferenceCenterStyle, selectedTime: Date = Date(), onToggle: @escaping (Bool) -> Void, onTimeChange: @escaping (Date) -> Void = { _ in }) {
+    init(preference: PreferenceCenterItem, isEnabled: Bool, isChannelEnabled: Bool = true, style: PreferenceCenterStyle, selectedTime: Date = Date(), onToggle: @escaping (Bool) -> Void, onTimeChange: @escaping (Date) -> Void = { _ in }) {
         self.preference = preference
         self.isEnabled = isEnabled
+        self.isChannelEnabled = isChannelEnabled
         self.style = style
         self.selectedTime = selectedTime
         self.onToggle = onToggle
@@ -770,8 +778,8 @@ private struct PreferenceToggleRow: View {
                     displayedComponents: .hourAndMinute
                 )
                 .labelsHidden()
-                .disabled(!isEnabled)
-                .opacity(isEnabled ? 1.0 : 0.4)
+                .disabled(!isEnabled || !isChannelEnabled)
+                .opacity(isEnabled && isChannelEnabled ? 1.0 : 0.4)
                 .applyDatePickerTint(style.datePickerTintColor)
             }
 
@@ -781,8 +789,10 @@ private struct PreferenceToggleRow: View {
             ))
             .labelsHidden()
             .applyToggleTint(style.toggleTintColor)
+            .disabled(!isChannelEnabled)
         }
         .padding(.vertical, 4)
+        .opacity(isChannelEnabled ? 1.0 : 0.4)
     }
 }
 
@@ -792,6 +802,7 @@ private struct PreferenceToggleRow: View {
 private struct ScheduleToggleRow: View {
     let schedule: PreferenceCenterItem
     let isEnabled: Bool
+    let isChannelEnabled: Bool
     let style: PreferenceCenterStyle
     let selectedTime: Date
     let onToggle: (Bool) -> Void
@@ -817,8 +828,8 @@ private struct ScheduleToggleRow: View {
                     displayedComponents: .hourAndMinute
                 )
                 .labelsHidden()
-                .disabled(!isEnabled)
-                .opacity(isEnabled ? 1.0 : 0.4)
+                .disabled(!isEnabled || !isChannelEnabled)
+                .opacity(isEnabled && isChannelEnabled ? 1.0 : 0.4)
                 .applyDatePickerTint(style.datePickerTintColor)
             }
 
@@ -828,8 +839,10 @@ private struct ScheduleToggleRow: View {
             ))
             .labelsHidden()
             .applyToggleTint(style.toggleTintColor)
+            .disabled(!isChannelEnabled)
         }
         .padding(.vertical, 4)
+        .opacity(isChannelEnabled ? 1.0 : 0.4)
     }
 }
 
@@ -848,6 +861,9 @@ class PreferenceCenterViewModel: ObservableObject {
     @Published var preferences: [PreferenceCenterItem] = [] // NEW
     @Published var topics: [PreferenceCenterItem] = []
     @Published var schedules: [PreferenceCenterItem] = []
+
+    // Channel-level gates (stored in preferences doc, top-level gate before placement preferences)
+    @Published var pushChannelEnabled: Bool = true
 
     // SMS state
     @Published var smsEnabled = false
@@ -889,8 +905,13 @@ class PreferenceCenterViewModel: ObservableObject {
             print("⚠️ CopyLab: No cached preferences - preferences should have been fetched on identify()")
         }
 
-        // Load SMS state from UserDefaults
-        smsEnabled = UserDefaults.standard.bool(forKey: "copylab_sms_enabled")
+        // Load channel states — prefer prefs cache, fall back to UserDefaults for SMS
+        if let cachedChannels = CopyLab.getCachedNotificationPreferences()?.channels {
+            pushChannelEnabled = cachedChannels["push"] ?? true
+            smsEnabled = cachedChannels["sms"] ?? UserDefaults.standard.bool(forKey: "copylab_sms_enabled")
+        } else {
+            smsEnabled = UserDefaults.standard.bool(forKey: "copylab_sms_enabled")
+        }
         if let savedE164 = UserDefaults.standard.string(forKey: "copylab_sms_phone_e164") {
             savedPhoneE164 = savedE164
             if let (country, digits) = parseE164(savedE164) {
@@ -953,7 +974,7 @@ class PreferenceCenterViewModel: ObservableObject {
     }
     
     private func updateViewModelWithPreferences(_ prefs: NotificationPreferences) {
-        print("🔍 CopyLab: Applying preferences - schedules: \(prefs.schedules), times: \(prefs.scheduleTimes), preferences: \(prefs.preferences)")
+        print("🔍 CopyLab: Applying preferences - schedules: \(prefs.schedules), times: \(prefs.scheduleTimes), preferences: \(prefs.preferences), channels: \(prefs.channels)")
         self.subscribedTopics = Set(prefs.topics)
         for (scheduleId, enabled) in prefs.schedules {
             self.scheduleStates[scheduleId] = enabled
@@ -965,7 +986,9 @@ class PreferenceCenterViewModel: ObservableObject {
             self.preferenceStates[prefId] = enabled
             print("🔍 CopyLab: Set preferenceStates[\(prefId)] = \(enabled)")
         }
-        
+        // Apply channel gates
+        self.pushChannelEnabled = prefs.channels["push"] ?? true
+        self.smsEnabled = prefs.channels["sms"] ?? self.smsEnabled
         self.osPermissionStatus = prefs.osPermission
     }
     
@@ -1042,10 +1065,14 @@ class PreferenceCenterViewModel: ObservableObject {
             if let error = error {
                 print("⚠️ CopyLab: Error requesting permissions: \(error.localizedDescription)")
             }
-            // Status is automatically synced by the SDK, just refresh local state
             UNUserNotificationCenter.current().getNotificationSettings { [weak self] settings in
                 DispatchQueue.main.async {
-                    self?.osPermissionStatus = self?.mapAuthorizationStatus(settings.authorizationStatus) ?? "unknown"
+                    let status = self?.mapAuthorizationStatus(settings.authorizationStatus) ?? "unknown"
+                    self?.osPermissionStatus = status
+                    // If the user just granted permission, also enable the push channel preference
+                    if status == "authorized" || status == "provisional" {
+                        self?.togglePushChannel(true)
+                    }
                 }
             }
         }
@@ -1071,6 +1098,20 @@ class PreferenceCenterViewModel: ObservableObject {
     func toggleSms(_ enabled: Bool) {
         smsEnabled = enabled
         UserDefaults.standard.set(enabled, forKey: "copylab_sms_enabled")
+        CopyLab.updateChannelPreference(channel: "sms", enabled: enabled) { result in
+            if case .failure(let error) = result {
+                print("⚠️ CopyLab: Error updating SMS channel preference: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    func togglePushChannel(_ enabled: Bool) {
+        pushChannelEnabled = enabled
+        CopyLab.updateChannelPreference(channel: "push", enabled: enabled) { result in
+            if case .failure(let error) = result {
+                print("⚠️ CopyLab: Error updating push channel preference: \(error.localizedDescription)")
+            }
+        }
     }
 
     func savePhoneNumber() {

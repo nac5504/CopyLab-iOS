@@ -18,7 +18,7 @@ public enum CopyLab {
     private static let prefsCacheKey = "copylab_prefs_cache"
     
     /// SDK Version
-    public static let sdkVersion = "2.9.0"
+    public static let sdkVersion = "2.11.0"
 
     private static var pendingActions: [() -> Void] = []
 
@@ -751,7 +751,8 @@ public enum CopyLab {
                             schedules: updatedSchedules,
                             scheduleTimes: cachedPrefs.scheduleTimes,
                             preferences: cachedPrefs.preferences,
-                            timezone: cachedPrefs.timezone
+                            timezone: cachedPrefs.timezone,
+                            channels: cachedPrefs.channels
                         )
                     }
                     for (scheduleId, timeStr) in scheduleTimes {
@@ -763,7 +764,8 @@ public enum CopyLab {
                             schedules: cachedPrefs.schedules,
                             scheduleTimes: updatedTimes,
                             preferences: cachedPrefs.preferences,
-                            timezone: cachedPrefs.timezone
+                            timezone: cachedPrefs.timezone,
+                            channels: cachedPrefs.channels
                         )
                     }
                     saveCachedPreferences(cachedPrefs)
@@ -837,7 +839,8 @@ public enum CopyLab {
                         schedules: cachedPrefs.schedules,
                         scheduleTimes: cachedPrefs.scheduleTimes,
                         preferences: updatedPrefs,
-                        timezone: cachedPrefs.timezone
+                        timezone: cachedPrefs.timezone,
+                        channels: cachedPrefs.channels
                     )
                     saveCachedPreferences(newCachedPrefs)
                 }
@@ -848,6 +851,56 @@ public enum CopyLab {
         }
     }
     
+    /// Sets the channel-level enabled state for push or SMS notifications.
+    ///
+    /// Channels are the top-level gate checked *before* any placement-level preference.
+    /// For example, if `sms` is disabled here, no SMS placement will fire regardless of its
+    /// `required_preference` setting.
+    ///
+    /// - Parameters:
+    ///   - channel: The channel to update — `"push"` or `"sms"`
+    ///   - enabled: Whether this channel should be enabled
+    ///   - completion: Callback with success or error
+    public static func updateChannelPreference(
+        channel: String,
+        enabled: Bool,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        guard identifiedUserId != nil else {
+            print("⚠️ CopyLab: User not identified. Call identify(userId:) first.")
+            completion(.failure(CopyLabError.notConfigured))
+            return
+        }
+
+        let body: [String: Any] = [
+            "user_id": currentUserId,
+            "channels": [channel: enabled]
+        ]
+
+        makeAPIRequest(endpoint: "update_user_preferences", body: body) { result in
+            switch result {
+            case .success:
+                print("📬 CopyLab: Updated channel preference [\(channel)] = \(enabled)")
+                if let cachedPrefs = getCachedNotificationPreferences() {
+                    var updatedChannels = cachedPrefs.channels
+                    updatedChannels[channel] = enabled
+                    saveCachedPreferences(NotificationPreferences(
+                        osPermission: cachedPrefs.osPermission,
+                        topics: cachedPrefs.topics,
+                        schedules: cachedPrefs.schedules,
+                        scheduleTimes: cachedPrefs.scheduleTimes,
+                        preferences: cachedPrefs.preferences,
+                        timezone: cachedPrefs.timezone,
+                        channels: updatedChannels
+                    ))
+                }
+                completion(.success(()))
+            case .failure(let error):
+                completion(.failure(error))
+            }
+        }
+    }
+
     // MARK: - Preference Management
 
     /// Returns the user's preferences as `UserPreference` objects, merging config with user state.

@@ -24,7 +24,9 @@ public struct NotificationPreferences: Codable, Sendable {
     public let preferences: [String: Bool]
     /// User's timezone identifier (e.g., "America/New_York")
     public let timezone: String?
-    
+    /// Channel-level enabled toggles (e.g. ["push": true, "sms": false])
+    public let channels: [String: Bool]
+
     enum CodingKeys: String, CodingKey {
         case osPermission = "os_permission"
         case topics
@@ -32,8 +34,9 @@ public struct NotificationPreferences: Codable, Sendable {
         case scheduleTimes = "schedule_times"
         case preferences
         case timezone
+        case channels
     }
-    
+
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         osPermission = try container.decode(String.self, forKey: .osPermission)
@@ -42,8 +45,9 @@ public struct NotificationPreferences: Codable, Sendable {
         scheduleTimes = try container.decodeIfPresent([String: String].self, forKey: .scheduleTimes) ?? [:]
         preferences = try container.decodeIfPresent([String: Bool].self, forKey: .preferences) ?? [:]
         timezone = try container.decodeIfPresent(String.self, forKey: .timezone)
+        channels = try container.decodeIfPresent([String: Bool].self, forKey: .channels) ?? [:]
     }
-    
+
     /// Memberwise initializer for creating modified copies
     public init(
         osPermission: String,
@@ -51,7 +55,8 @@ public struct NotificationPreferences: Codable, Sendable {
         schedules: [String: Bool],
         scheduleTimes: [String: String],
         preferences: [String: Bool],
-        timezone: String?
+        timezone: String?,
+        channels: [String: Bool] = [:]
     ) {
         self.osPermission = osPermission
         self.topics = topics
@@ -59,6 +64,7 @@ public struct NotificationPreferences: Codable, Sendable {
         self.scheduleTimes = scheduleTimes
         self.preferences = preferences
         self.timezone = timezone
+        self.channels = channels
     }
 }
 
