@@ -206,11 +206,21 @@ private extension View {
 /// ))
 /// ```
 @available(iOS 14.0, *)
+private enum ActiveAlert: Identifiable {
+    case disablePush, disableSms, redirectToSettings
+    var id: Int {
+        switch self {
+        case .disablePush: return 0
+        case .disableSms: return 1
+        case .redirectToSettings: return 2
+        }
+    }
+}
+
+@available(iOS 14.0, *)
 public struct PreferenceCenterView: View {
     @StateObject private var viewModel = PreferenceCenterViewModel()
-    @State private var showDisableAlert = false
-    @State private var showDisableSmsAlert = false
-    @State private var showRedirectToSettingsAlert = false
+    @State private var activeAlert: ActiveAlert? = nil
 
     private let style: PreferenceCenterStyle
 
@@ -256,47 +266,35 @@ public struct PreferenceCenterView: View {
                             pushChannelEnabled: viewModel.pushChannelEnabled,
                             style: style,
                             onToggleOn: {
-                                // Enable channel preference, then handle OS permission if needed
                                 if viewModel.osPermissionStatus == "notDetermined" {
                                     viewModel.requestSystemPermissions()
                                 } else if viewModel.osPermissionStatus == "denied" {
-                                    showRedirectToSettingsAlert = true
+                                    activeAlert = .redirectToSettings
                                 } else {
                                     viewModel.togglePushChannel(true)
                                 }
                             },
-                            onDisable: { showDisableAlert = true }
+                            onDisable: { activeAlert = .disablePush }
                         )
                         .listRowBackground(style.sectionBackgroundColor)
 
-                        let formattedPhone: String? = viewModel.smsEnabled && !viewModel.phoneDigits.isEmpty
-                            ? viewModel.selectedCountry.format(viewModel.phoneDigits)
-                            : nil
                         SmsAlertRow(
                             smsEnabled: viewModel.smsEnabled,
-                            formattedPhone: formattedPhone,
+                            selectedCountry: $viewModel.selectedCountry,
+                            phoneDigits: $viewModel.phoneDigits,
+                            isSaving: $viewModel.isSavingPhone,
+                            savedNumber: viewModel.savedPhoneE164,
                             style: style,
                             onToggle: { enabled in
                                 if !enabled {
-                                    showDisableSmsAlert = true
+                                    activeAlert = .disableSms
                                 } else {
                                     viewModel.toggleSms(true)
                                 }
-                            }
+                            },
+                            onSave: { viewModel.savePhoneNumber() }
                         )
                         .listRowBackground(style.sectionBackgroundColor)
-
-                        if viewModel.smsEnabled {
-                            PhoneInputRow(
-                                selectedCountry: $viewModel.selectedCountry,
-                                phoneDigits: $viewModel.phoneDigits,
-                                isSaving: $viewModel.isSavingPhone,
-                                savedNumber: viewModel.savedPhoneE164,
-                                style: style,
-                                onSave: { viewModel.savePhoneNumber() }
-                            )
-                            .listRowBackground(style.sectionBackgroundColor)
-                        }
                     }
 
                     // Preferences Section
@@ -405,35 +403,36 @@ public struct PreferenceCenterView: View {
             }
         }
         .navigationTitle(style.navigationTitle)
-        .alert(isPresented: $showDisableAlert) {
-            Alert(
-                title: Text(CopyLab.disableNotificationsAlertConfig.title),
-                message: Text(CopyLab.disableNotificationsAlertConfig.message),
-                primaryButton: .destructive(Text(CopyLab.disableNotificationsAlertConfig.confirmTitle)) {
-                    viewModel.togglePushChannel(false)
-                },
-                secondaryButton: .cancel(Text(CopyLab.disableNotificationsAlertConfig.cancelTitle))
-            )
-        }
-        .alert(isPresented: $showDisableSmsAlert) {
-            Alert(
-                title: Text("Disable SMS?"),
-                message: Text("You will no longer receive SMS notifications."),
-                primaryButton: .destructive(Text("Disable")) {
-                    viewModel.toggleSms(false)
-                },
-                secondaryButton: .cancel(Text("Cancel"))
-            )
-        }
-        .alert(isPresented: $showRedirectToSettingsAlert) {
-            Alert(
-                title: Text("Enable Push Notifications"),
-                message: Text("You'll be taken to Settings to enable push notifications."),
-                primaryButton: .default(Text("Open Settings")) {
-                    viewModel.openSystemSettings()
-                },
-                secondaryButton: .cancel()
-            )
+        .alert(item: $activeAlert) { alertType in
+            switch alertType {
+            case .disablePush:
+                return Alert(
+                    title: Text(CopyLab.disableNotificationsAlertConfig.title),
+                    message: Text(CopyLab.disableNotificationsAlertConfig.message),
+                    primaryButton: .destructive(Text(CopyLab.disableNotificationsAlertConfig.confirmTitle)) {
+                        viewModel.togglePushChannel(false)
+                    },
+                    secondaryButton: .cancel(Text(CopyLab.disableNotificationsAlertConfig.cancelTitle))
+                )
+            case .disableSms:
+                return Alert(
+                    title: Text("Disable SMS?"),
+                    message: Text("You will no longer receive SMS notifications."),
+                    primaryButton: .destructive(Text("Disable")) {
+                        viewModel.toggleSms(false)
+                    },
+                    secondaryButton: .cancel(Text("Cancel"))
+                )
+            case .redirectToSettings:
+                return Alert(
+                    title: Text("Enable Push Notifications"),
+                    message: Text("You'll be taken to Settings to enable push notifications."),
+                    primaryButton: .default(Text("Open Settings")) {
+                        viewModel.openSystemSettings()
+                    },
+                    secondaryButton: .cancel()
+                )
+            }
         }
         .onAppear {
             viewModel.loadData()
@@ -499,134 +498,129 @@ private struct PushAlertRow: View {
     }
 }
 
-// MARK: - SMS Alert Row
+// MARK: - SMS Alert Row (includes inline phone number entry)
 
 @available(iOS 14.0, *)
 private struct SmsAlertRow: View {
     let smsEnabled: Bool
-    let formattedPhone: String?
-    let style: PreferenceCenterStyle
-    let onToggle: (Bool) -> Void
-
-    var body: some View {
-        HStack {
-            Image(systemName: smsEnabled ? "message.fill" : "message")
-                .foregroundColor(smsEnabled
-                    ? (style.permissionAuthorizedColor ?? .green)
-                    : (style.permissionUnknownColor ?? .gray))
-                .font(.title2)
-                .frame(width: 28)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text("SMS Notifications")
-                    .font(style.permissionTitleFont ?? .headline)
-                    .foregroundColor(style.primaryTextColor)
-                Text(smsEnabled
-                    ? (formattedPhone.map { "Receive texts at \($0)" } ?? "SMS enabled")
-                    : "SMS disabled")
-                    .font(style.secondaryTextFont ?? .caption)
-                    .foregroundColor(style.secondaryTextColor ?? .secondary)
-            }
-
-            Spacer()
-
-            Toggle("", isOn: Binding(
-                get: { smsEnabled },
-                set: { onToggle($0) }
-            ))
-            .labelsHidden()
-            .applyToggleTint(style.toggleTintColor)
-        }
-        .padding(.vertical, 4)
-    }
-}
-
-// MARK: - Phone Input Row
-
-@available(iOS 14.0, *)
-private struct PhoneInputRow: View {
     @Binding var selectedCountry: CountryCode
     @Binding var phoneDigits: String
     @Binding var isSaving: Bool
     let savedNumber: String?
     let style: PreferenceCenterStyle
+    let onToggle: (Bool) -> Void
     let onSave: () -> Void
 
     @State private var showCountryPicker = false
 
     private var e164Number: String { "\(selectedCountry.dialCode)\(phoneDigits)" }
-
     private var isPhoneComplete: Bool { phoneDigits.count == selectedCountry.maxDigits }
-
     private var isAlreadySaved: Bool {
         guard let saved = savedNumber else { return false }
         return saved == e164Number && isPhoneComplete
     }
+    private var formattedPhone: String? {
+        guard !phoneDigits.isEmpty else { return nil }
+        return selectedCountry.format(phoneDigits)
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            // Dial-code picker + formatted number field
-            HStack(spacing: 0) {
-                Button(action: { showCountryPicker = true }) {
-                    HStack(spacing: 4) {
-                        Text(selectedCountry.flag).font(.body)
-                        Text(selectedCountry.dialCode)
-                            .font(style.primaryTextFont ?? .body)
-                            .foregroundColor(style.primaryTextColor)
-                        Image(systemName: "chevron.down")
-                            .font(.caption2)
-                            .foregroundColor(style.secondaryTextColor ?? .secondary)
-                    }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 8)
+        VStack(alignment: .leading, spacing: 10) {
+            // Toggle row
+            HStack {
+                Image(systemName: smsEnabled ? "message.fill" : "message")
+                    .foregroundColor(smsEnabled
+                        ? (style.permissionAuthorizedColor ?? .green)
+                        : (style.permissionUnknownColor ?? .gray))
+                    .font(.title2)
+                    .frame(width: 28)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("SMS Notifications")
+                        .font(style.permissionTitleFont ?? .headline)
+                        .foregroundColor(style.primaryTextColor)
+                    Text(smsEnabled
+                        ? (formattedPhone.map { "Receive texts at \($0)" } ?? "Enter your phone number")
+                        : "SMS disabled")
+                        .font(style.secondaryTextFont ?? .caption)
+                        .foregroundColor(style.secondaryTextColor ?? .secondary)
                 }
 
-                Divider().frame(height: 24)
-
-                TextField(
-                    selectedCountry.formatPattern.replacingOccurrences(of: "#", with: "0"),
-                    text: Binding(
-                        get: { selectedCountry.format(phoneDigits) },
-                        set: { newVal in
-                            let digits = newVal.filter { $0.isNumber }
-                            phoneDigits = String(digits.prefix(selectedCountry.maxDigits))
-                        }
-                    )
-                )
-                .keyboardType(.phonePad)
-                .font(style.primaryTextFont ?? .body)
-                .foregroundColor(style.primaryTextColor)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 8)
-            }
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(
-                        (style.secondaryTextColor ?? .secondary).opacity(0.3),
-                        lineWidth: 1
-                    )
-            )
-
-            // Single right-aligned save/saved indicator
-            HStack {
                 Spacer()
-                if isSaving {
-                    ProgressView().scaleEffect(0.8)
-                } else if isAlreadySaved {
-                    HStack(spacing: 4) {
-                        Image(systemName: "checkmark.circle.fill").font(.caption)
-                        Text("Saved").font(style.secondaryTextFont ?? .caption)
+
+                Toggle("", isOn: Binding(
+                    get: { smsEnabled },
+                    set: { onToggle($0) }
+                ))
+                .labelsHidden()
+                .applyToggleTint(style.toggleTintColor)
+            }
+
+            // Inline phone number entry (visible when SMS is enabled)
+            if smsEnabled {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 0) {
+                        Button(action: { showCountryPicker = true }) {
+                            HStack(spacing: 4) {
+                                Text(selectedCountry.flag).font(.body)
+                                Text(selectedCountry.dialCode)
+                                    .font(style.primaryTextFont ?? .body)
+                                    .foregroundColor(style.primaryTextColor)
+                                Image(systemName: "chevron.down")
+                                    .font(.caption2)
+                                    .foregroundColor(style.secondaryTextColor ?? .secondary)
+                            }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 8)
+                        }
+
+                        Divider().frame(height: 24)
+
+                        TextField(
+                            selectedCountry.formatPattern.replacingOccurrences(of: "#", with: "0"),
+                            text: Binding(
+                                get: { selectedCountry.format(phoneDigits) },
+                                set: { newVal in
+                                    let digits = newVal.filter { $0.isNumber }
+                                    phoneDigits = String(digits.prefix(selectedCountry.maxDigits))
+                                }
+                            )
+                        )
+                        .keyboardType(.phonePad)
+                        .font(style.primaryTextFont ?? .body)
+                        .foregroundColor(style.primaryTextColor)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 8)
                     }
-                    .foregroundColor(style.permissionAuthorizedColor ?? .green)
-                } else {
-                    Button(action: onSave) {
-                        Text("Save Number")
-                            .font(style.primaryTextFont ?? .body)
-                            .foregroundColor(isPhoneComplete
-                                ? (style.accentColor ?? .blue)
-                                : (style.secondaryTextColor ?? .secondary))
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(
+                                (style.secondaryTextColor ?? .secondary).opacity(0.3),
+                                lineWidth: 1
+                            )
+                    )
+
+                    HStack {
+                        Spacer()
+                        if isSaving {
+                            ProgressView().scaleEffect(0.8)
+                        } else if isAlreadySaved {
+                            HStack(spacing: 4) {
+                                Image(systemName: "checkmark.circle.fill").font(.caption)
+                                Text("Saved").font(style.secondaryTextFont ?? .caption)
+                            }
+                            .foregroundColor(style.permissionAuthorizedColor ?? .green)
+                        } else {
+                            Button(action: onSave) {
+                                Text("Save Number")
+                                    .font(style.primaryTextFont ?? .body)
+                                    .foregroundColor(isPhoneComplete
+                                        ? (style.accentColor ?? .blue)
+                                        : (style.secondaryTextColor ?? .secondary))
+                            }
+                            .disabled(!isPhoneComplete)
+                        }
                     }
-                    .disabled(!isPhoneComplete)
                 }
             }
         }
