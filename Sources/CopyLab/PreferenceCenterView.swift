@@ -396,6 +396,53 @@ public struct PreferenceCenterView: View {
                         .disabled(viewModel.savedPhoneE164 == nil || viewModel.isSendingTestSms)
                         .listRowBackground(style.sectionBackgroundColor)
                     }
+
+                    Section(header: styledHeader("Journey Debug")) {
+                        // Start journey via event trigger
+                        Button(action: {
+                            CopyLab.logEvent("test_journey_start")
+                        }) {
+                            HStack {
+                                Text("Start test_journey (event)")
+                                    .foregroundColor(style.primaryTextColor)
+                                    .font(style.primaryTextFont ?? .body)
+                                Spacer()
+                                Image(systemName: "play.circle")
+                                    .foregroundColor(.green)
+                            }
+                        }
+                        .listRowBackground(style.sectionBackgroundColor)
+
+                        // Exit journey via event trigger
+                        Button(action: {
+                            CopyLab.logEvent("test_event")
+                        }) {
+                            HStack {
+                                Text("Exit journey (test_event)")
+                                    .foregroundColor(style.primaryTextColor)
+                                    .font(style.primaryTextFont ?? .body)
+                                Spacer()
+                                Image(systemName: "stop.circle")
+                                    .foregroundColor(.red)
+                            }
+                        }
+                        .listRowBackground(style.sectionBackgroundColor)
+
+                        // Exit journey via property change
+                        Button(action: {
+                            CopyLab.setUserAttributes(["journey_status": "exited"])
+                        }) {
+                            HStack {
+                                Text("Exit journey (property change)")
+                                    .foregroundColor(style.primaryTextColor)
+                                    .font(style.primaryTextFont ?? .body)
+                                Spacer()
+                                Image(systemName: "xmark.circle")
+                                    .foregroundColor(.orange)
+                            }
+                        }
+                        .listRowBackground(style.sectionBackgroundColor)
+                    }
                     #endif
                 }
                 .listStyle(InsetGroupedListStyle())
