@@ -18,7 +18,7 @@ public enum CopyLab {
     private static let prefsCacheKey = "copylab_prefs_cache"
     
     /// SDK Version
-    public static let sdkVersion = "2.12.1"
+    public static let sdkVersion = "2.12.2"
 
     private static var pendingActions: [() -> Void] = []
 
@@ -376,12 +376,17 @@ public enum CopyLab {
             pendingActions.append { registerPushToken(token) }
             return
         }
-        
-        let body: [String: Any] = [
+
+        var body: [String: Any] = [
             "user_id": currentUserId,
             "token": token,
             "platform": "ios"
         ]
+        // Stable per-device identifier so the backend can replace stale tokens
+        // when the same device gets a new token (token refresh)
+        if let vendorId = UIDevice.current.identifierForVendor?.uuidString {
+            body["device_id"] = vendorId
+        }
         
         makeAPIRequest(endpoint: "register_push_token", body: body) { result in
             switch result {
@@ -853,9 +858,10 @@ public enum CopyLab {
         
         let body: [String: Any] = [
             "user_id": currentUserId,
-            "preferences": preferences
+            "preferences": preferences,
+            "timezone": TimeZone.current.identifier
         ]
-        
+
         makeAPIRequest(endpoint: "update_user_preferences", body: body) { result in
             switch result {
             case .success:
