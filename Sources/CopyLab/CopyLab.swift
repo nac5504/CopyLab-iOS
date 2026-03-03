@@ -18,7 +18,7 @@ public enum CopyLab {
     private static let prefsCacheKey = "copylab_prefs_cache"
     
     /// SDK Version
-    public static let sdkVersion = "2.11.1"
+    public static let sdkVersion = "2.12.0"
 
     private static var pendingActions: [() -> Void] = []
 
@@ -640,6 +640,39 @@ public enum CopyLab {
                 print("📋 CopyLab: User attributes updated")
             case .failure(let error):
                 print("⚠️ CopyLab: Error setting user attributes: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    // MARK: - Events
+
+    /// Log a custom event for the current user. Events can trigger journey entry/exit.
+    /// - Parameters:
+    ///   - eventName: The name of the event (e.g. "cart_abandoned", "purchase_completed")
+    ///   - properties: Optional key-value pairs with additional context
+    public static func logEvent(_ eventName: String, properties: [String: String]? = nil) {
+        guard identifiedUserId != nil else {
+            print("⏳ CopyLab: Queueing logEvent until user is identified")
+            pendingActions.append { logEvent(eventName, properties: properties) }
+            return
+        }
+
+        var body: [String: Any] = [
+            "user_id": currentUserId,
+            "event_name": eventName,
+            "event_id": UUID().uuidString
+        ]
+
+        if let properties = properties {
+            body["properties"] = properties
+        }
+
+        makeAPIRequest(endpoint: "log_event", body: body) { result in
+            switch result {
+            case .success:
+                print("📋 CopyLab: Event logged: \(eventName)")
+            case .failure(let error):
+                print("⚠️ CopyLab: Error logging event: \(error.localizedDescription)")
             }
         }
     }
