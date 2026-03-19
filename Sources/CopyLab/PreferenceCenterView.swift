@@ -927,18 +927,35 @@ class PreferenceCenterViewModel: ObservableObject {
     }
     
     func loadData() {
-        print("🔍 CopyLab: loadData() called - using cached data only")
+        print("🔍 CopyLab: loadData() called")
         isLoading = true
         error = nil
-        
-        // Load from cache ONLY (data was prefetched on configure/identify)
+
+        // Try cache first, fall back to network fetch if empty
         if let cachedConfig = CopyLab.getCachedPreferenceCenterConfig() {
             print("💾 CopyLab: Loaded config from cache - \(cachedConfig.sections.count) sections")
             self.processConfig(cachedConfig)
+            self.loadPreferencesAndFinish()
         } else {
-            print("⚠️ CopyLab: No cached config - config should have been fetched on configure()")
+            print("⚠️ CopyLab: No cached config - fetching from network")
+            CopyLab.getPreferenceCenterConfig { [weak self] result in
+                DispatchQueue.main.async {
+                    guard let self = self else { return }
+                    switch result {
+                    case .success(let config):
+                        print("✅ CopyLab: Fetched config from network - \(config.sections.count) sections")
+                        self.processConfig(config)
+                    case .failure(let error):
+                        print("⚠️ CopyLab: Failed to fetch config: \(error.localizedDescription)")
+                        self.error = error
+                    }
+                    self.loadPreferencesAndFinish()
+                }
+            }
         }
-        
+    }
+
+    private func loadPreferencesAndFinish() {
         if let cachedPrefs = CopyLab.getCachedNotificationPreferences() {
             print("💾 CopyLab: Loaded preferences from cache - prefs: \(cachedPrefs.preferences), times: \(cachedPrefs.scheduleTimes)")
             self.updateViewModelWithPreferences(cachedPrefs)
@@ -967,7 +984,7 @@ class PreferenceCenterViewModel: ObservableObject {
                 self?.osPermissionStatus = self?.mapAuthorizationStatus(settings.authorizationStatus) ?? "unknown"
             }
         }
-        
+
         self.isLoading = false
         print("🔍 CopyLab: loadData() complete - preferenceStates = \(self.preferenceStates)")
     }
