@@ -484,6 +484,9 @@ public struct PreferenceCenterView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             viewModel.refreshPermissionStatus()
         }
+        .onTapGesture {
+            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        }
     }
 
     private func styledHeader(_ title: String) -> some View {
