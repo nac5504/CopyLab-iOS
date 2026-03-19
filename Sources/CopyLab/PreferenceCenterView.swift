@@ -271,7 +271,6 @@ public struct PreferenceCenterView: View {
                                         viewModel.requestSystemPermissions()
                                     case "denied":
                                         activeAlert = .redirectToSettings
-                                        viewModel.togglePushChannel(true)
                                     default:
                                         viewModel.togglePushChannel(true)
                                     }
@@ -478,6 +477,9 @@ public struct PreferenceCenterView: View {
         }
         .onAppear {
             viewModel.loadData()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+            viewModel.refreshPermissionStatus()
         }
     }
 
@@ -1109,11 +1111,22 @@ class PreferenceCenterViewModel: ObservableObject {
             UIApplication.shared.open(url)
         }
     }
-    
-    func requestSystemPermissions() {
-        // Optimistically enable the toggle and update channel preference
-        togglePushChannel(true)
 
+    func refreshPermissionStatus() {
+        UNUserNotificationCenter.current().getNotificationSettings { [weak self] settings in
+            DispatchQueue.main.async {
+                let status = self?.mapAuthorizationStatus(settings.authorizationStatus) ?? "unknown"
+                let wasEnabled = self?.pushChannelEnabled ?? false
+                self?.osPermissionStatus = status
+                // User just enabled in Settings — flip toggle on
+                if !wasEnabled && (status == "authorized" || status == "provisional") {
+                    self?.togglePushChannel(true)
+                }
+            }
+        }
+    }
+
+    func requestSystemPermissions() {
         CopyLab.requestNotificationPermission { [weak self] granted, error in
             if let error = error {
                 print("⚠️ CopyLab: Error requesting permissions: \(error.localizedDescription)")
@@ -1122,6 +1135,11 @@ class PreferenceCenterViewModel: ObservableObject {
                 DispatchQueue.main.async {
                     let status = self?.mapAuthorizationStatus(settings.authorizationStatus) ?? "unknown"
                     self?.osPermissionStatus = status
+                    if status == "authorized" || status == "provisional" {
+                        self?.togglePushChannel(true)
+                    } else {
+                        self?.togglePushChannel(false)
+                    }
                 }
             }
         }
