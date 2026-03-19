@@ -530,6 +530,17 @@ public enum CopyLab {
                     print("⚠️ CopyLab: Error syncing notification status: \(error.localizedDescription)")
                 }
             }
+
+            // Sync push channel preference with OS permission
+            let isGranted = statusString == "authorized" || statusString == "provisional"
+            updateChannelPreference(channel: "push", enabled: isGranted) { result in
+                switch result {
+                case .success:
+                    print("📊 CopyLab: Synced push channel preference: \(isGranted)")
+                case .failure(let error):
+                    print("⚠️ CopyLab: Error syncing push channel preference: \(error.localizedDescription)")
+                }
+            }
         }
     }
     
