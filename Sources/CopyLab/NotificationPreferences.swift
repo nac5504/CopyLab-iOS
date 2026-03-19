@@ -155,13 +155,21 @@ public enum PreferenceCenterSectionType: String, Codable, Sendable {
     case preferences
     case topics
     case schedules
+    case channels
+    case unknown
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let rawValue = try container.decode(String.self)
+        self = Self(rawValue: rawValue) ?? .unknown
+    }
 }
 
 /// A section in the preference center config
 public struct PreferenceCenterSection: Codable, Sendable {
     public let type: PreferenceCenterSectionType
     public let items: [PreferenceCenterItem]?
-    
+
     public init(type: PreferenceCenterSectionType, items: [PreferenceCenterItem]? = nil) {
         self.type = type
         self.items = items

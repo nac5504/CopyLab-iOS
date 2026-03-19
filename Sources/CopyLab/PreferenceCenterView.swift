@@ -1008,7 +1008,7 @@ class PreferenceCenterViewModel: ObservableObject {
                         scheduleTimes[schedule.id] = parseTime(schedule.defaultTime ?? "09:00")
                     }
                 }
-            case .systemPermissionCard:
+            case .systemPermissionCard, .channels, .unknown:
                 break
             }
         }
