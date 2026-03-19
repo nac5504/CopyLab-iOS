@@ -481,6 +481,9 @@ public struct PreferenceCenterView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
             viewModel.refreshPermissionStatus()
         }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            viewModel.refreshPermissionStatus()
+        }
     }
 
     private func styledHeader(_ title: String) -> some View {
@@ -972,10 +975,18 @@ class PreferenceCenterViewModel: ObservableObject {
             }
         }
 
-        // Fetch current OS permission status
+        // Fetch current OS permission status and sync push toggle
         UNUserNotificationCenter.current().getNotificationSettings { [weak self] settings in
             DispatchQueue.main.async {
-                self?.osPermissionStatus = self?.mapAuthorizationStatus(settings.authorizationStatus) ?? "unknown"
+                guard let self = self else { return }
+                let status = self.mapAuthorizationStatus(settings.authorizationStatus)
+                self.osPermissionStatus = status
+                // If OS permission is denied/not determined, force push toggle off
+                if status == "denied" || status == "notDetermined" {
+                    if self.pushChannelEnabled {
+                        self.togglePushChannel(false)
+                    }
+                }
             }
         }
 
@@ -1115,12 +1126,15 @@ class PreferenceCenterViewModel: ObservableObject {
     func refreshPermissionStatus() {
         UNUserNotificationCenter.current().getNotificationSettings { [weak self] settings in
             DispatchQueue.main.async {
-                let status = self?.mapAuthorizationStatus(settings.authorizationStatus) ?? "unknown"
-                let wasEnabled = self?.pushChannelEnabled ?? false
-                self?.osPermissionStatus = status
-                // User just enabled in Settings — flip toggle on
-                if !wasEnabled && (status == "authorized" || status == "provisional") {
-                    self?.togglePushChannel(true)
+                guard let self = self else { return }
+                let status = self.mapAuthorizationStatus(settings.authorizationStatus)
+                self.osPermissionStatus = status
+                let isGranted = status == "authorized" || status == "provisional"
+                // Sync toggle with OS permission state
+                if isGranted && !self.pushChannelEnabled {
+                    self.togglePushChannel(true)
+                } else if !isGranted && self.pushChannelEnabled {
+                    self.togglePushChannel(false)
                 }
             }
         }
