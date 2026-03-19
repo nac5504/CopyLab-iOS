@@ -207,10 +207,9 @@ private extension View {
 /// ```
 @available(iOS 14.0, *)
 private enum ActiveAlert: Identifiable {
-    case disablePush, disableSms, redirectToSettings
+    case disableSms, redirectToSettings
     var id: Int {
         switch self {
-        case .disablePush: return 0
         case .disableSms: return 1
         case .redirectToSettings: return 2
         }
@@ -265,16 +264,21 @@ public struct PreferenceCenterView: View {
                             status: viewModel.osPermissionStatus,
                             pushChannelEnabled: viewModel.pushChannelEnabled,
                             style: style,
-                            onToggleOn: {
-                                if viewModel.osPermissionStatus == "notDetermined" {
-                                    viewModel.requestSystemPermissions()
-                                } else if viewModel.osPermissionStatus == "denied" {
-                                    activeAlert = .redirectToSettings
+                            onToggle: { enabled in
+                                if enabled {
+                                    switch viewModel.osPermissionStatus {
+                                    case "notDetermined":
+                                        viewModel.requestSystemPermissions()
+                                    case "denied":
+                                        activeAlert = .redirectToSettings
+                                        viewModel.togglePushChannel(true)
+                                    default:
+                                        viewModel.togglePushChannel(true)
+                                    }
                                 } else {
-                                    viewModel.togglePushChannel(true)
+                                    viewModel.togglePushChannel(false)
                                 }
-                            },
-                            onDisable: { activeAlert = .disablePush }
+                            }
                         )
                         .listRowBackground(style.sectionBackgroundColor)
 
@@ -452,15 +456,6 @@ public struct PreferenceCenterView: View {
         .navigationTitle(style.navigationTitle)
         .alert(item: $activeAlert) { alertType in
             switch alertType {
-            case .disablePush:
-                return Alert(
-                    title: Text(CopyLab.disableNotificationsAlertConfig.title),
-                    message: Text(CopyLab.disableNotificationsAlertConfig.message),
-                    primaryButton: .destructive(Text(CopyLab.disableNotificationsAlertConfig.confirmTitle)) {
-                        viewModel.togglePushChannel(false)
-                    },
-                    secondaryButton: .cancel(Text(CopyLab.disableNotificationsAlertConfig.cancelTitle))
-                )
             case .disableSms:
                 return Alert(
                     title: Text("Disable SMS?"),
@@ -500,8 +495,7 @@ private struct PushAlertRow: View {
     let status: String
     let pushChannelEnabled: Bool
     let style: PreferenceCenterStyle
-    let onToggleOn: () -> Void   // called when user turns toggle ON
-    let onDisable: () -> Void    // called when user turns toggle OFF (show confirm)
+    let onToggle: (Bool) -> Void
 
     var body: some View {
         HStack {
@@ -525,9 +519,7 @@ private struct PushAlertRow: View {
 
             Toggle("", isOn: Binding(
                 get: { pushChannelEnabled },
-                set: { newVal in
-                    if newVal { onToggleOn() } else { onDisable() }
-                }
+                set: { onToggle($0) }
             ))
             .labelsHidden()
             .applyToggleTint(style.toggleTintColor)
@@ -1119,6 +1111,9 @@ class PreferenceCenterViewModel: ObservableObject {
     }
     
     func requestSystemPermissions() {
+        // Optimistically enable the toggle and update channel preference
+        togglePushChannel(true)
+
         CopyLab.requestNotificationPermission { [weak self] granted, error in
             if let error = error {
                 print("⚠️ CopyLab: Error requesting permissions: \(error.localizedDescription)")
@@ -1127,10 +1122,6 @@ class PreferenceCenterViewModel: ObservableObject {
                 DispatchQueue.main.async {
                     let status = self?.mapAuthorizationStatus(settings.authorizationStatus) ?? "unknown"
                     self?.osPermissionStatus = status
-                    // If the user just granted permission, also enable the push channel preference
-                    if status == "authorized" || status == "provisional" {
-                        self?.togglePushChannel(true)
-                    }
                 }
             }
         }

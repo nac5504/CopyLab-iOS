@@ -299,11 +299,19 @@ public enum CopyLab {
             }
             
             do {
+                #if DEBUG
+                if let rawJSON = String(data: data, encoding: .utf8) {
+                    print("📡 CopyLab [\(endpoint)] raw response:\n\(rawJSON)")
+                }
+                #endif
                 let decoder = JSONDecoder()
                 let decoded = try decoder.decode(T.self, from: data)
                 completion(.success(decoded))
             } catch {
                 print("⚠️ CopyLab: Decoding error for \(endpoint): \(error)")
+                if let rawJSON = String(data: data, encoding: .utf8) {
+                    print("⚠️ CopyLab: Raw JSON that failed to decode:\n\(rawJSON)")
+                }
                 completion(.failure(error))
             }
         }.resume()
