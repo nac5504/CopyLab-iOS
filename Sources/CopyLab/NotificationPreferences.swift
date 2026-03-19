@@ -213,6 +213,18 @@ public struct PreferenceCenterItem: Codable, Identifiable, Sendable {
         self.defaultTime = defaultTime
         self.parameters = parameters
     }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        title = try container.decode(String.self, forKey: .title)
+        description = try container.decodeIfPresent(String.self, forKey: .description) ?? ""
+        type = try container.decodeIfPresent(TopicType.self, forKey: .type)
+        enabledByDefault = try container.decodeIfPresent(Bool.self, forKey: .enabledByDefault)
+        timeConfigurable = try container.decodeIfPresent(Bool.self, forKey: .timeConfigurable)
+        defaultTime = try container.decodeIfPresent(String.self, forKey: .defaultTime)
+        parameters = try container.decodeIfPresent(PreferenceParameters.self, forKey: .parameters)
+    }
 }
 
 /// A single user preference with its config and current state.
