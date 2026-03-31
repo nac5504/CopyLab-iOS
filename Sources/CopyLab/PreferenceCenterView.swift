@@ -400,48 +400,36 @@ public struct PreferenceCenterView: View {
                         .listRowBackground(style.sectionBackgroundColor)
                     }
 
-                    Section(header: styledHeader("Journey Debug")) {
-                        // Start journey via event trigger
+                    Section(header: styledHeader("Cart Abandonment Debug")) {
+                        // Trigger cart abandonment journey
                         Button(action: {
-                            CopyLab.logEvent("test_journey_start")
+                            CopyLab.logEvent("cart_abandoned", properties: [
+                                "cart_value": "49.99",
+                                "item_count": "3"
+                            ])
                         }) {
                             HStack {
-                                Text("Start test_journey (event)")
+                                Text("Trigger cart_abandoned")
                                     .foregroundColor(style.primaryTextColor)
                                     .font(style.primaryTextFont ?? .body)
                                 Spacer()
-                                Image(systemName: "play.circle")
+                                Image(systemName: "cart.badge.plus")
                                     .foregroundColor(.green)
                             }
                         }
                         .listRowBackground(style.sectionBackgroundColor)
 
-                        // Exit journey via event trigger
+                        // Exit journey via purchase completed
                         Button(action: {
-                            CopyLab.logEvent("test_event")
+                            CopyLab.logEvent("purchase_completed")
                         }) {
                             HStack {
-                                Text("Exit journey (test_event)")
+                                Text("Trigger purchase_completed")
                                     .foregroundColor(style.primaryTextColor)
                                     .font(style.primaryTextFont ?? .body)
                                 Spacer()
-                                Image(systemName: "stop.circle")
+                                Image(systemName: "cart.badge.checkmark")
                                     .foregroundColor(.red)
-                            }
-                        }
-                        .listRowBackground(style.sectionBackgroundColor)
-
-                        // Exit journey via property change
-                        Button(action: {
-                            CopyLab.setUserAttributes(["journey_status": "exited"])
-                        }) {
-                            HStack {
-                                Text("Exit journey (property change)")
-                                    .foregroundColor(style.primaryTextColor)
-                                    .font(style.primaryTextFont ?? .body)
-                                Spacer()
-                                Image(systemName: "xmark.circle")
-                                    .foregroundColor(.orange)
                             }
                         }
                         .listRowBackground(style.sectionBackgroundColor)
